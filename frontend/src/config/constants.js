@@ -1,6 +1,9 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:5006/api',
+  BASE_URL: process.env.REACT_APP_API_URL || 
+    (process.env.NODE_ENV === 'production' 
+      ? 'https://cafe-tamarind-backend.vercel.app/api' 
+      : 'http://localhost:5006/api'),
   TIMEOUT: 10000
 };
 
