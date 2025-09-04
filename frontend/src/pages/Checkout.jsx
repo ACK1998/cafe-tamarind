@@ -6,6 +6,7 @@ import OTPVerification from '../components/OTPVerification';
 import useStore from '../store/useStore';
 import { useApp } from '../context/AppContext';
 import { authAPI, ordersAPI } from '../services/api';
+import { FEATURE_CONFIG } from '../config/constants';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -76,13 +77,26 @@ const Checkout = () => {
       return;
     }
 
-
     setError('');
+
+    // Check if OTP is disabled
+    if (!FEATURE_CONFIG.OTP_ENABLED) {
+      // Skip OTP and place order directly
+      await handlePlaceOrder();
+      return;
+    }
 
     // Generate OTP
     try {
       setLoading(true);
-      await authAPI.generateOTP(formData.customerPhone);
+      const response = await authAPI.generateOTP(formData.customerPhone);
+      
+      // Check if OTP is disabled on backend
+      if (response.data.data?.otpDisabled) {
+        await handlePlaceOrder();
+        return;
+      }
+      
       setShowOTP(true);
       setError('');
     } catch (err) {

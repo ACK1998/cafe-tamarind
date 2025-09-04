@@ -43,6 +43,14 @@ const PAYMENT_CONFIG = {
   SERVICE_CHARGE: 0.05 // 5% service charge
 };
 
+// OTP Configuration
+const OTP_CONFIG = {
+  ENABLED: process.env.OTP_ENABLED !== 'false', // Default: true, set OTP_ENABLED=false to disable
+  EXPIRY_MINUTES: parseInt(process.env.OTP_EXPIRY_MINUTES) || 5,
+  MAX_ATTEMPTS: 5,
+  LENGTH: 4
+};
+
 // Validation Rules
 const VALIDATION_RULES = {
   PASSWORD_MIN_LENGTH: 6,
@@ -63,6 +71,7 @@ module.exports = {
   DB_CONFIG,
   ORDER_CONFIG,
   PAYMENT_CONFIG,
+  OTP_CONFIG,
   VALIDATION_RULES,
   UPLOAD_CONFIG
 };

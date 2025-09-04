@@ -146,42 +146,6 @@ const Home = () => {
             Discover our delicious menu and place your order with ease
           </p>
         </div>
-
-        {/* Customer Login Prompt */}
-        {!isAuthenticated() && (
-          <div className="mb-8 animate-fade-in">
-            <div className="card">
-              <div className="p-6 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-                  <User className="w-8 h-8 text-blue-500" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  Customer Menu
-                </h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
-                  You're viewing our customer menu. For special pricing and additional features, 
-                  please log in to your account.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button
-                    onClick={() => navigate('/customer/login')}
-                    className="btn-primary inline-flex items-center"
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    Customer Login
-                  </button>
-                  <button
-                    onClick={() => navigate('/customer/register')}
-                    className="btn-outline inline-flex items-center"
-                  >
-                    Create Account
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
      
 
         {/* Search and Filters */}

@@ -10,6 +10,7 @@ const {
   unauthorizedResponse 
 } = require('../utils/response');
 const { isValidPhone } = require('../utils/validation');
+const { OTP_CONFIG } = require('../config/constants');
 
 // Generate OTP
 const generateOTP = () => {
@@ -22,6 +23,15 @@ const generateOTP = () => {
 const generateOTPForCustomer = async (req, res) => {
   try {
     const { phone } = req.body;
+
+    // Check if OTP is disabled
+    if (!OTP_CONFIG.ENABLED) {
+      return successResponse(res, {
+        phone,
+        message: 'OTP is disabled. Order will be placed directly.',
+        otpDisabled: true
+      }, 'OTP verification skipped');
+    }
 
     if (!phone) {
       return errorResponse(res, 'Phone number is required', 400);
@@ -83,6 +93,15 @@ const verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
     console.log(`🔍 Verifying OTP: ${otp} for phone: ${phone}`);
+
+    // Check if OTP is disabled
+    if (!OTP_CONFIG.ENABLED) {
+      return successResponse(res, {
+        phone,
+        message: 'OTP verification skipped - OTP is disabled',
+        otpDisabled: true
+      }, 'OTP verification skipped');
+    }
 
     if (!phone || !otp) {
       console.log('❌ Missing phone or OTP');

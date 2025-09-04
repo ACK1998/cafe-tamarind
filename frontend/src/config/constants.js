@@ -4,6 +4,12 @@ export const API_CONFIG = {
   TIMEOUT: 10000
 };
 
+// Feature Configuration
+export const FEATURE_CONFIG = {
+  OTP_ENABLED: process.env.REACT_APP_OTP_ENABLED !== 'false', // Default: true, set REACT_APP_OTP_ENABLED=false to disable
+  DEBUG_MODE: process.env.REACT_APP_DEBUG_MODE === 'true'
+};
+
 // Currency Configuration
 export const CURRENCY_CONFIG = {
   SYMBOL: '₹',
