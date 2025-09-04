@@ -17,13 +17,6 @@ const ReviewModal = ({
   const [canReviewData, setCanReviewData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize reviews state when modal opens
-  useEffect(() => {
-    if (isOpen && order && customerPhone) {
-      checkCanReview();
-    }
-  }, [isOpen, order, customerPhone, checkCanReview]);
-
   const checkCanReview = useCallback(async () => {
     try {
       setLoading(true);
@@ -89,6 +82,13 @@ const ReviewModal = ({
       setLoading(false);
     }
   }, [isUpdate, order, customerPhone]);
+
+  // Initialize reviews state when modal opens
+  useEffect(() => {
+    if (isOpen && order && customerPhone) {
+      checkCanReview();
+    }
+  }, [isOpen, order, customerPhone, checkCanReview]);
 
   const updateReview = (menuItemId, field, value) => {
     setReviews(prev => ({
