@@ -1,0 +1,901 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .btn-primary {
+    @apply btn bg-orange-600 text-white hover:bg-orange-700 focus:ring-orange-500;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+  }
+  
+  .btn-outline {
+    @apply btn border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-orange-500 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700;
+  }
+  
+  .input {
+    @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-orange-500 focus:border-orange-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400;
+  }
+  
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700;
+  }
+  
+  .menu-item-card {
+    @apply card p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer;
+  }
+  
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .status-pending {
+    @apply status-badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+  
+  .status-confirmed {
+    @apply status-badge bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+  }
+  
+  .status-preparing {
+    @apply status-badge bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200;
+  }
+  
+  .status-ready {
+    @apply status-badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+  
+  .status-completed {
+    @apply status-badge bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200;
+  }
+  
+  .status-cancelled {
+    @apply status-badge bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* React DatePicker Custom Styles */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker__input-container {
+  width: 100%;
+}
+
+.react-datepicker__input-container input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: white;
+  color: #374151;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  transition: all 0.2s;
+}
+
+.dark .react-datepicker__input-container input {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+.react-datepicker__input-container input:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.react-datepicker {
+  font-family: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  background-color: white;
+}
+
+.dark .react-datepicker {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+.react-datepicker__header {
+  background-color: #f97316;
+  border-bottom: 1px solid #d1d5db;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  padding: 0.5rem;
+}
+
+.dark .react-datepicker__header {
+  background-color: #ea580c;
+  border-color: #4b5563;
+}
+
+.react-datepicker__current-month {
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.react-datepicker__day-name {
+  color: white;
+  font-weight: 500;
+}
+
+.react-datepicker__day {
+  color: #374151;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+}
+
+.dark .react-datepicker__day {
+  color: #f9fafb;
+}
+
+.react-datepicker__day:hover {
+  background-color: #f97316;
+  color: white;
+}
+
+.react-datepicker__day--selected {
+  background-color: #f97316;
+  color: white;
+}
+
+.react-datepicker__day--keyboard-selected {
+  background-color: #f97316;
+  color: white;
+}
+
+.react-datepicker__day--disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.dark .react-datepicker__day--disabled {
+  color: #6b7280;
+}
+
+.react-datepicker__time-container {
+  border-left: 1px solid #d1d5db;
+}
+
+.dark .react-datepicker__time-container {
+  border-color: #4b5563;
+}
+
+.react-datepicker__time-list-item {
+  color: #374151;
+  transition: all 0.2s;
+}
+
+.dark .react-datepicker__time-list-item {
+  color: #f9fafb;
+}
+
+.react-datepicker__time-list-item:hover {
+  background-color: #f97316;
+  color: white;
+}
+
+.react-datepicker__time-list-item--selected {
+  background-color: #f97316;
+  color: white;
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -0.5rem, 0);
+  }
+  70% {
+    transform: translate3d(0, -0.25rem, 0);
+  }
+  90% {
+    transform: translate3d(0, -0.125rem, 0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+/* Animation classes */
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInFromLeft 0.5s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 0.5s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s infinite;
+}
+
+.animate-bounce-slow {
+  animation: bounce 2s infinite;
+}
+
+/* Loading shimmer effect */
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Enhanced component styles with consistent spacing */
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeIn 0.6s ease-out;
+}
+
+.card:hover {
+  @apply shadow-lg;
+  transform: translateY(-0.125rem);
+}
+
+.btn-primary {
+  @apply bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-6 rounded-xl shadow-md;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-0.125rem);
+  box-shadow: 0 0.625rem 1.5625rem rgba(249, 115, 22, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-outline {
+  @apply border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium py-2 px-4 rounded-xl;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-outline:hover {
+  @apply border-orange-500 text-orange-500;
+  transform: translateY(-0.125rem);
+}
+
+.btn-secondary {
+  @apply bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium py-2 px-4 rounded-xl;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-0.125rem);
+}
+
+.input {
+  @apply w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input:focus {
+  @apply outline-none ring-2 ring-orange-500 border-orange-500;
+  transform: scale(1.02);
+}
+
+.input:hover {
+  @apply border-gray-400 dark:border-gray-500;
+}
+
+/* Status badges with animations */
+.status-badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.status-badge:hover {
+  transform: scale(1.05);
+}
+
+.status-pending {
+  @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300;
+}
+
+.status-confirmed {
+  @apply bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300;
+}
+
+.status-preparing {
+  @apply bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300;
+}
+
+.status-ready {
+  @apply bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300;
+}
+
+.status-completed {
+  @apply bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300;
+}
+
+.status-cancelled {
+  @apply bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300;
+}
+
+/* Menu item cards with enhanced animations */
+.menu-item-card {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: scaleIn 0.5s ease-out;
+  min-height: 420px;
+}
+
+.menu-item-card:hover {
+  @apply shadow-xl;
+  transform: translateY(-0.25rem) scale(1.02);
+}
+
+.menu-item-card .card-image {
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-item-card:hover .card-image {
+  transform: scale(1.05);
+}
+
+/* Quantity controls with smooth animations */
+.quantity-control {
+  @apply flex items-center gap-3;
+}
+
+.quantity-btn {
+  @apply w-10 h-10 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quantity-btn:hover {
+  transform: scale(1.1);
+}
+
+.quantity-btn:active {
+  transform: scale(0.95);
+}
+
+.quantity-btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+  transform: none;
+}
+
+/* Cart badge animation */
+.cart-badge {
+  @apply absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center;
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Pre-order toggle with smooth animation */
+.pre-order-toggle {
+  @apply relative inline-flex items-center h-6 w-11 rounded-full transition-colors duration-200 ease-in-out;
+}
+
+.pre-order-toggle.enabled {
+  @apply bg-orange-500;
+}
+
+.pre-order-toggle.disabled {
+  @apply bg-gray-300 dark:bg-gray-600;
+}
+
+.pre-order-toggle .toggle-thumb {
+  @apply inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 ease-in-out;
+}
+
+.pre-order-toggle.enabled .toggle-thumb {
+  transform: translateX(1.25rem);
+}
+
+/* Form animations with consistent delays */
+.form-group {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.form-group:nth-child(1) { animation-delay: 0.1s; }
+.form-group:nth-child(2) { animation-delay: 0.2s; }
+.form-group:nth-child(3) { animation-delay: 0.3s; }
+.form-group:nth-child(4) { animation-delay: 0.4s; }
+
+/* Loading spinner */
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-gray-300 border-t-orange-500;
+}
+
+/* Success/Error messages with animations */
+.message {
+  @apply p-4 rounded-xl mb-4;
+  animation: slideInFromRight 0.4s ease-out;
+}
+
+.message.success {
+  @apply bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300;
+}
+
+.message.error {
+  @apply bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300;
+}
+
+.message.warning {
+  @apply bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300;
+}
+
+/* Navigation animations */
+.nav-link {
+  @apply relative text-gray-700 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400;
+  transition: color 0.3s ease;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -0.125rem;
+  left: 0;
+  width: 0;
+  height: 0.125rem;
+  background: linear-gradient(90deg, #f97316, #ea580c);
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* Page transitions */
+.page-transition {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Responsive grid animations */
+.grid-item {
+  animation: scaleIn 0.5s ease-out;
+}
+
+.grid-item:nth-child(1) { animation-delay: 0.1s; }
+.grid-item:nth-child(2) { animation-delay: 0.2s; }
+.grid-item:nth-child(3) { animation-delay: 0.3s; }
+.grid-item:nth-child(4) { animation-delay: 0.4s; }
+.grid-item:nth-child(5) { animation-delay: 0.5s; }
+.grid-item:nth-child(6) { animation-delay: 0.6s; }
+.grid-item:nth-child(7) { animation-delay: 0.7s; }
+.grid-item:nth-child(8) { animation-delay: 0.8s; }
+
+/* OTP input styling (for future use) */
+.otp-input {
+  @apply w-12 h-12 text-center text-lg font-semibold border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.otp-input:focus {
+  @apply outline-none ring-2 ring-orange-500 border-orange-500;
+  transform: scale(1.05);
+}
+
+.otp-input.filled {
+  @apply border-green-500 bg-green-50 dark:bg-green-900/20;
+}
+
+/* Professional shadows */
+.shadow-professional {
+  box-shadow: var(--shadow-md);
+}
+
+.shadow-professional-hover {
+  box-shadow: var(--shadow-xl);
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+
+.gradient-secondary {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+/* Focus styles for accessibility */
+.focus-ring:focus {
+  @apply outline-none ring-2 ring-orange-500 ring-offset-2;
+}
+
+/* React DatePicker custom styles */
+.react-datepicker-wrapper {
+  @apply w-full;
+}
+
+.react-datepicker__input-container {
+  @apply w-full;
+}
+
+.react-datepicker__input-container input {
+  @apply input;
+}
+
+.react-datepicker {
+  @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl;
+  font-family: inherit;
+}
+
+.react-datepicker__header {
+  @apply bg-orange-500 text-white border-b border-orange-600 rounded-t-xl;
+}
+
+.react-datepicker__current-month {
+  @apply text-white font-semibold;
+}
+
+.react-datepicker__day-name {
+  @apply text-white font-medium;
+}
+
+.react-datepicker__day {
+  @apply text-gray-900 dark:text-white hover:bg-orange-100 dark:hover:bg-orange-900/20 rounded-lg;
+}
+
+.react-datepicker__day--selected {
+  @apply bg-orange-500 text-white hover:bg-orange-600;
+}
+
+.react-datepicker__day--keyboard-selected {
+  @apply bg-orange-500 text-white;
+}
+
+.react-datepicker__day--disabled {
+  @apply text-gray-400 dark:text-gray-600;
+}
+
+.react-datepicker__navigation {
+  @apply text-white;
+}
+
+.react-datepicker__navigation:hover {
+  @apply bg-orange-600 rounded-lg;
+}
+
+.react-datepicker__month-container {
+  @apply rounded-xl;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .btn-primary {
+    @apply border-2 border-orange-600;
+  }
+  
+  .card {
+    @apply border-2 border-gray-400;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Responsive typography */
+@media (max-width: 640px) {
+  .text-4xl {
+    font-size: 1.875rem;
+  }
+  
+  .text-3xl {
+    font-size: 1.5rem;
+  }
+  
+  .text-2xl {
+    font-size: 1.25rem;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* CRITICAL FIXES FOR TEXT VISIBILITY */
+
+/* Ensure proper text colors in light mode */
+.text-gray-900 {
+  color: #111827 !important;
+}
+
+.text-gray-700 {
+  color: #374151 !important;
+}
+
+.text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.text-gray-300 {
+  color: #d1d5db !important;
+}
+
+/* Ensure proper text colors in dark mode */
+.dark .text-gray-900 {
+  color: #f9fafb !important;
+}
+
+.dark .text-gray-700 {
+  color: #d1d5db !important;
+}
+
+.dark .text-gray-600 {
+  color: #9ca3af !important;
+}
+
+.dark .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.dark .text-gray-300 {
+  color: #6b7280 !important;
+}
+
+/* Fix for gradient text */
+.gradient-primary.bg-clip-text {
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+}
+
+/* Ensure headings have proper contrast */
+h1, h2, h3, h4, h5, h6 {
+  color: inherit !important;
+}
+
+/* Ensure paragraphs and spans inherit colors properly */
+p, span, div {
+  color: inherit !important;
+}
+
+/* Fix for button text colors */
+.btn-primary {
+  color: white !important;
+}
+
+.btn-outline {
+  color: inherit !important;
+}
+
+.btn-secondary {
+  color: inherit !important;
+}
+
+/* Fix for input text colors */
+.input {
+  color: #111827 !important;
+}
+
+.dark .input {
+  color: #f9fafb !important;
+}
+
+/* Fix for card text colors */
+.card {
+  color: inherit !important;
+}
+
+/* Fix for menu item card text */
+.menu-item-card h3 {
+  color: #111827 !important;
+}
+
+.dark .menu-item-card h3 {
+  color: #f9fafb !important;
+}
+
+.menu-item-card p {
+  color: #4b5563 !important;
+}
+
+.dark .menu-item-card p {
+  color: #9ca3af !important;
+}
+
+/* Fix for price text */
+.text-orange-600 {
+  color: #ea580c !important;
+}
+
+.dark .text-orange-600 {
+  color: #f97316 !important;
+}
+
+/* Fix for stock indicator text */
+.text-green-800 {
+  color: #166534 !important;
+}
+
+.dark .text-green-800 {
+  color: #22c55e !important;
+}
+
+/* Fix for category tags */
+.text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.dark .text-gray-600 {
+  color: #9ca3af !important;
+}
+
+.input-with-right-icon-sm:hover {
+  @apply border-gray-400 dark:border-gray-500;
+}
+
+/* Input with left icon - adjust padding to prevent overlap */
+.input-with-icon {
+  @apply w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Input with right icon - adjust padding to prevent overlap */
+.input-with-right-icon {
+  @apply w-full pl-4 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Input with both left and right icons */
+.input-with-both-icons {
+  @apply w-full pl-12 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

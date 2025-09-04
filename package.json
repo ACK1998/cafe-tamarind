@@ -1,0 +1,52 @@
+{
+  "name": "cafe-tamarind",
+  "version": "1.0.0",
+  "description": "Cafe Tamarind QR Ordering System - Full Stack Application",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "seed": "cd backend && npm run seed",
+    "test": "node test-app.js",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "audit:fix": "cd frontend && npm audit fix --force && cd ../backend && npm audit fix",
+    "lint": "cd frontend && npm run lint",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,scss,md}\""
+  },
+  "keywords": [
+    "cafe",
+    "ordering",
+    "qr-code",
+    "react",
+    "nodejs",
+    "mongodb",
+    "express"
+  ],
+  "author": "Cafe Tamarind Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.0.3"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "colors": "^1.4.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/cafe-tamarind.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/cafe-tamarind/issues"
+  },
+  "homepage": "https://github.com/your-username/cafe-tamarind#readme"
+}
