@@ -81,7 +81,13 @@ app.use('*', (req, res) => {
 
 const PORT = API_CONFIG.PORT;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 API available at http://localhost:${PORT}/api`);
-});
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📱 API available at http://localhost:${PORT}/api`);
+  });
+}
+
+// Export for Vercel
+module.exports = app;
