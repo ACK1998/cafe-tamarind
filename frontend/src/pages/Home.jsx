@@ -1,171 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, ShoppingCart } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import MenuItemCard from '../components/MenuItemCard';
+import SimpleMenuList from '../components/SimpleMenuList';
+import ErrorBoundary from '../components/ErrorBoundary';
 import useStore from '../store/useStore';
-import { API_CONFIG } from '../config/constants';
-import axios from 'axios';
+import usePaginatedMenu from '../hooks/usePaginatedMenu';
 
 const Home = () => {
   const navigate = useNavigate();
   const { cart } = useStore();
 
-  const cartItemCount = cart.reduce((total, item) => total + item.quantity, 0);
+  const cartItemCount = (cart || []).reduce((total, item) => total + item.quantity, 0);
   
-  const [menuItems, setMenuItems] = useState([]);
-  const [categories, setCategories] = useState([]);
+  // Filter states
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [stockFilter, setStockFilter] = useState('all'); // 'all', 'in-stock', 'out-of-stock'
   const [sortBy, setSortBy] = useState('default'); // 'default', 'rating-high', 'rating-low', 'name', 'price-low', 'price-high'
 
-  useEffect(() => {
-    fetchMenuItems();
-    fetchCategories();
-  }, [selectedCategory]);
+  // Use the paginated menu hook
+  const {
+    groupedItems,
+    categories,
+    loading,
+    loadingMore,
+    error,
+    hasNextPage,
+    totalItems,
+    displayedCount,
+    loadMore
+  } = usePaginatedMenu({
+    selectedCategory,
+    searchTerm,
+    stockFilter,
+    sortBy
+  });
 
-  const fetchMenuItems = async () => {
-    try {
-      setLoading(true);
-      
-      // Check user role from localStorage
-      const customerData = localStorage.getItem('customerData');
-      let userRole = 'customer'; // default
-      
-      if (customerData) {
-        try {
-          const user = JSON.parse(customerData);
-          userRole = user.role || 'customer';
-        } catch (e) {
-          console.error('Error parsing customer data:', e);
-        }
-      }
-      
-      // Fetch appropriate menu based on user role
-      const endpoint = userRole === 'employee' ? '/menu/inhouse' : '/menu/customer';
-      const response = await axios.get(`${API_CONFIG.BASE_URL}${endpoint}`);
-      setMenuItems(response.data.data);
-      setError('');
-    } catch (err) {
-      console.error('Error fetching menu items:', err);
-      setError('Failed to load menu items');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(`${API_CONFIG.BASE_URL}/menu/categories`);
-      const categoryData = response.data.data;
-      
-      // Ensure categories are strings and filter out invalid values
-      const validCategories = categoryData
-        .filter(cat => typeof cat === 'string' && cat.trim() !== '')
-        .sort();
-      
-      setCategories(validCategories);
-    } catch (err) {
-      console.error('Error fetching categories:', err);
-    }
-  };
 
 
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
-
-  const filteredAndSortedItems = menuItems
-    .filter(item => {
-      const matchesCategory = selectedCategory === '' || item.category === selectedCategory;
-      const matchesSearch = (searchTerm === '') || 
-                           (item.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                           (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      // Stock filtering logic
-      let matchesStock = true;
-      if (stockFilter === 'in-stock') {
-        matchesStock = item.stock > 0;
-      } else if (stockFilter === 'out-of-stock') {
-        matchesStock = item.stock === 0;
-      }
-      
-      return matchesCategory && matchesSearch && matchesStock;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'rating-high':
-          // First: All items with ratings (sorted high to low)
-          // Then: All items without ratings (sorted by name)
-          if (a.rating && b.rating) {
-            // Both have ratings - sort by rating (high to low)
-            return b.rating - a.rating;
-          }
-          if (a.rating && !b.rating) {
-            // A has rating, B doesn't - A comes first
-            return -1;
-          }
-          if (!a.rating && b.rating) {
-            // B has rating, A doesn't - B comes first
-            return 1;
-          }
-          // Neither has rating - sort by name
-          return a.name.localeCompare(b.name);
-          
-        case 'rating-low':
-          // First: All items with ratings (sorted low to high)
-          // Then: All items without ratings (sorted by name)
-          if (a.rating && b.rating) {
-            // Both have ratings - sort by rating (low to high)
-            return a.rating - b.rating;
-          }
-          if (a.rating && !b.rating) {
-            // A has rating, B doesn't - A comes first
-            return -1;
-          }
-          if (!a.rating && b.rating) {
-            // B has rating, A doesn't - B comes first
-            return 1;
-          }
-          // Neither has rating - sort by name
-          return a.name.localeCompare(b.name);
-          
-        case 'name':
-          return a.name.localeCompare(b.name);
-          
-        case 'price-low':
-          return (a.price || 0) - (b.price || 0);
-          
-        case 'price-high':
-          return (b.price || 0) - (a.price || 0);
-          
-        default:
-          // Default sorting: items with ratings first, then by category, then by name
-          if (a.rating && !b.rating) return -1;
-          if (!a.rating && b.rating) return 1;
-          if (a.category !== b.category) {
-            return a.category.localeCompare(b.category);
-          }
-          return a.name.localeCompare(b.name);
-      }
-    });
-
-  // For rating sorts, don't group by category to maintain rating order
-  const groupedItems = (sortBy === 'rating-high' || sortBy === 'rating-low') 
-    ? { 'All Items': filteredAndSortedItems }
-    : filteredAndSortedItems.reduce((acc, item) => {
-        const category = item.category || 'OTHER ITEMS';
-        if (!acc[category]) {
-          acc[category] = [];
-        }
-        acc[category].push(item);
-        return acc;
-      }, {});
 
   const handleAddToCart = (item) => {
     // Add a subtle animation feedback
@@ -302,7 +180,7 @@ const Home = () => {
                 >
                   All Categories
                 </button>
-                {categories.map((category) => (
+                {(categories || []).map((category) => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
@@ -328,53 +206,32 @@ const Home = () => {
         )}
 
         {/* Menu Items */}
-        {Object.keys(groupedItems).length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-              <Search className="w-12 h-12 text-gray-400" />
+        {!loading && (
+          <ErrorBoundary>
+            <SimpleMenuList
+              groupedItems={groupedItems || {}}
+              onAddToCart={handleAddToCart}
+              loading={loadingMore}
+            />
+          </ErrorBoundary>
+        )}
+
+        {/* Results Info - Below Menu Items */}
+        {!loading && totalItems > 0 && (
+          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
+              Showing {displayedCount} of {totalItems} items
+              {searchTerm && ` matching "${searchTerm}"`}
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              No Menu Items Found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-8">
-              {searchTerm 
-                ? `No items match "${searchTerm}" in the menu.`
-                : 'No items are currently available.'
-              }
-            </p>
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setSelectedCategory('');
-                setStockFilter('all');
-              }}
-              className="btn-primary"
-            >
-              Clear Filters
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {Object.entries(groupedItems).map(([category, items]) => (
-              <div key={category} className="card">
-                <div className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                    {category}
-                  </h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {items.map((item) => (
-                      <MenuItemCard
-                        key={item._id}
-                        item={item}
-                        onAddToCart={() => handleAddToCart(item)}
-                        dataItemId={item._id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
+            {hasNextPage && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading...' : 'Load More'}
+              </button>
+            )}
           </div>
         )}
 

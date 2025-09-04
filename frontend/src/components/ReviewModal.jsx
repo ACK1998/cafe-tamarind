@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Star, MessageCircle, User, UserX, AlertCircle, CheckCircle } from 'lucide-react';
 import { feedbackAPI } from '../services/api';
 
@@ -22,9 +22,9 @@ const ReviewModal = ({
     if (isOpen && order && customerPhone) {
       checkCanReview();
     }
-  }, [isOpen, order, customerPhone]);
+  }, [isOpen, order, customerPhone, checkCanReview]);
 
-  const checkCanReview = async () => {
+  const checkCanReview = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -88,7 +88,7 @@ const ReviewModal = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [isUpdate, order, customerPhone]);
 
   const updateReview = (menuItemId, field, value) => {
     setReviews(prev => ({

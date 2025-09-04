@@ -136,10 +136,16 @@ const CustomerOrders = () => {
 
     // Group reviews by menu item
     const reviewsByItem = reviews.reduce((acc, review) => {
+      // Check if menuItemId exists and has _id property
+      if (!review.menuItemId || !review.menuItemId._id) {
+        console.warn('Review missing menuItemId:', review);
+        return acc;
+      }
+      
       const itemId = review.menuItemId._id;
       if (!acc[itemId]) {
         acc[itemId] = {
-          itemName: review.menuItemId.name,
+          itemName: review.menuItemId.name || 'Unknown Item',
           food: null,
           service: null
         };
@@ -151,6 +157,9 @@ const CustomerOrders = () => {
       }
       return acc;
     }, {});
+
+    // If no valid reviews found, return null
+    if (Object.keys(reviewsByItem).length === 0) return null;
 
     return (
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -230,7 +239,10 @@ const CustomerOrders = () => {
   const checkOrderReviews = async (orderId) => {
     try {
       const response = await feedbackAPI.getOrderFeedback(orderId, phone);
-      return response.data.data || [];
+      const reviews = response?.data?.data || [];
+      
+      // Filter out any reviews with missing menuItemId
+      return reviews.filter(review => review && review.menuItemId && review.menuItemId._id);
     } catch (error) {
       console.error('Error fetching order reviews:', error);
       return [];
@@ -240,7 +252,11 @@ const CustomerOrders = () => {
   // Load existing reviews when orders are fetched
   const loadOrderReviews = async (orders) => {
     const reviewsData = {};
-    for (const order of orders) {
+    
+    // Ensure orders is an array and filter out null/undefined orders
+    const validOrders = Array.isArray(orders) ? orders.filter(order => order && order._id) : [];
+    
+    for (const order of validOrders) {
       if (order.status === 'completed') {
         const reviews = await checkOrderReviews(order._id);
         if (reviews.length > 0) {

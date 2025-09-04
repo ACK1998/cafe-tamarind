@@ -1,98 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Filter, Search, Calendar } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import MenuItemCard from '../components/MenuItemCard';
+import SimpleMenuList from '../components/SimpleMenuList';
+import ErrorBoundary from '../components/ErrorBoundary';
 import useStore from '../store/useStore';
-import { API_CONFIG } from '../config/constants';
-import axios from 'axios';
+import usePaginatedMenu from '../hooks/usePaginatedMenu';
 
 const PreOrderMenu = () => {
   const navigate = useNavigate();
   const { cart } = useStore();
-  const [menuItems, setMenuItems] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+
+  const cartItemCount = (cart || []).reduce((total, item) => total + item.quantity, 0);
+  
+  // Filter states
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [stockFilter, setStockFilter] = useState('all'); // 'all', 'in-stock', 'out-of-stock'
 
-  useEffect(() => {
-    fetchPreOrderMenu();
-    fetchCategories();
-  }, [selectedCategory]);
-
-  const fetchPreOrderMenu = async () => {
-    try {
-      setLoading(true);
-      const params = {};
-      if (selectedCategory) {
-        params.category = selectedCategory;
-      }
-      
-      // Check user role and fetch appropriate menu
-      let userRole = 'customer';
-      try {
-        const customerData = localStorage.getItem('customerData');
-        if (customerData) {
-          const user = JSON.parse(customerData);
-          userRole = user.role || 'customer';
-        }
-      } catch (e) {
-        console.error('Error parsing customer data:', e);
-      }
-      
-      // Fetch appropriate menu based on user role
-      const endpoint = userRole === 'employee' ? '/menu/inhouse' : '/menu/customer';
-      const response = await axios.get(`${API_CONFIG.BASE_URL}${endpoint}`, { params });
-      setMenuItems(response.data.data);
-      setError('');
-    } catch (err) {
-      console.error('Error fetching pre-order menu:', err);
-      setError('Failed to load pre-order menu');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(`${API_CONFIG.BASE_URL}/menu/categories`);
-      setCategories(response.data.data);
-    } catch (err) {
-      console.error('Error fetching categories:', err);
-    }
-  };
-
-
-
-  const filteredItems = menuItems.filter(item => {
-    const matchesCategory = selectedCategory === '' || item.category === selectedCategory;
-    const matchesSearch = (searchTerm === '') || 
-                         (item.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    // Stock filtering logic
-    let matchesStock = true;
-    if (stockFilter === 'in-stock') {
-      matchesStock = item.stock > 0;
-    } else if (stockFilter === 'out-of-stock') {
-      matchesStock = item.stock === 0;
-    }
-    
-    return matchesCategory && matchesSearch && matchesStock;
+  // Use the paginated menu hook
+  const {
+    groupedItems,
+    categories,
+    loading,
+    loadingMore,
+    error,
+    hasNextPage,
+    totalItems,
+    displayedCount,
+    loadMore
+  } = usePaginatedMenu({
+    selectedCategory,
+    searchTerm,
+    stockFilter,
+    sortBy: 'default'
   });
 
-  const groupedItems = filteredItems.reduce((acc, item) => {
-    const category = item.category || 'Other';
-    if (!acc[category]) {
-      acc[category] = [];
+  const handleAddToCart = (item) => {
+    // Add a subtle animation feedback
+    const button = document.querySelector(`[data-item-id="${item._id}"]`);
+    if (button) {
+      button.classList.add('animate-bounce-slow');
+      setTimeout(() => {
+        button.classList.remove('animate-bounce-slow');
+      }, 600);
     }
-    acc[category].push(item);
-    return acc;
-  }, {});
+  };
 
   if (loading) {
     return (
@@ -134,13 +88,13 @@ const PreOrderMenu = () => {
             </div>
             
             {/* Schedule Pre-Order Button */}
-            {cart.length > 0 && (
+            {cartItemCount > 0 && (
               <button
                 onClick={() => navigate('/pre-order')}
                 className="btn-primary inline-flex items-center ml-4"
               >
                 <Calendar className="w-4 h-4 mr-2" />
-                Schedule Pre-Order ({cart.length})
+                Schedule Pre-Order ({cartItemCount})
               </button>
             )}
           </div>
@@ -223,7 +177,7 @@ const PreOrderMenu = () => {
                 >
                   All Categories
                 </button>
-                {categories.map((category) => (
+                {(categories || []).map((category) => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
@@ -249,48 +203,38 @@ const PreOrderMenu = () => {
         )}
 
         {/* Menu Items */}
-        {Object.keys(groupedItems).length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 mx-auto mb-6 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center">
-              <Clock className="w-12 h-12 text-orange-500" />
+        {!loading && (
+          <ErrorBoundary>
+            <SimpleMenuList
+              groupedItems={groupedItems || {}}
+              onAddToCart={handleAddToCart}
+              loading={loadingMore}
+            />
+          </ErrorBoundary>
+        )}
+
+        {/* Results Info - Below Menu Items */}
+        {!loading && totalItems > 0 && (
+          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
+              Showing {displayedCount} of {totalItems} items
+              {searchTerm && ` matching "${searchTerm}"`}
+              {selectedCategory && ` in ${selectedCategory}`}
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              No Pre-Order Items Found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-8">
-              {searchTerm 
-                ? `No items match "${searchTerm}" in the pre-order menu.`
-                : 'No items are currently available for pre-order.'
-              }
-            </p>
-            <button
-              onClick={() => navigate('/')}
-              className="btn-primary"
-            >
-              Browse Regular Menu
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {Object.entries(groupedItems).map(([category, items]) => (
-              <div key={category} className="card">
-                <div className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                    {category}
-                  </h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {items.map((item) => (
-                      <MenuItemCard
-                        key={item._id}
-                        item={item}
-                        dataItemId={item._id}
-                      />
-                    ))}
-                  </div>
-                </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Available for pre-order
               </div>
-            ))}
+              {hasNextPage && (
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? 'Loading...' : 'Load More'}
+                </button>
+              )}
+            </div>
           </div>
         )}
 

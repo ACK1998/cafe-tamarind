@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ShoppingCart, Menu, X, LogIn, User, LogOut, Clock, Package } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+// import { useApp } from '../context/AppContext';
 import useStore from '../store/useStore';
 import ThemeToggle from './ThemeToggle';
 import { STORAGE_KEYS, ROUTES } from '../config/constants';
 import { storage } from '../utils/helpers';
 
 const Navbar = () => {
-  const { isDarkMode } = useApp();
   const { cart } = useStore();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);

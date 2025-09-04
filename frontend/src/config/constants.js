@@ -46,7 +46,7 @@ export const PAYMENT_CONFIG = {
 // Validation Rules
 export const VALIDATION_RULES = {
   PASSWORD_MIN_LENGTH: 6,
-  PHONE_REGEX: /^\+?[\d\s\-\(\)]+$/,
+  PHONE_REGEX: /^\+?[\d\s\-()]+$/,
   EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 };
 
