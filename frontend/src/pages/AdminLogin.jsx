@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import useStore from '../store/useStore';
 import { STORAGE_KEYS } from '../config/constants';
-import axios from 'axios';
+import { authAPI } from '../services/api';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ const AdminLogin = () => {
     setError('');
 
     try {
-      const response = await axios.post('/api/auth/login', formData);
+      const response = await authAPI.login(formData);
       const userData = response.data.data;
 
       if (userData.role !== 'admin') {
