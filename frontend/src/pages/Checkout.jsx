@@ -82,7 +82,7 @@ const Checkout = () => {
     // Check if OTP is disabled
     if (!FEATURE_CONFIG.OTP_ENABLED) {
       // Skip OTP and place order directly
-      await handlePlaceOrder();
+      await placeOrder();
       return;
     }
 
@@ -93,7 +93,7 @@ const Checkout = () => {
       
       // Check if OTP is disabled on backend
       if (response.data.data?.otpDisabled) {
-        await handlePlaceOrder();
+        await placeOrder();
         return;
       }
       
