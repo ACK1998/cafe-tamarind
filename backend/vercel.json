@@ -2,14 +2,30 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/menu.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/orders.js", 
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
+      "src": "/api/menu/(.*)",
+      "dest": "api/menu.js"
+    },
+    {
+      "src": "/api/orders/(.*)",
+      "dest": "api/orders.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "server.js"
+      "dest": "api/index.js"
     }
   ]
 }
