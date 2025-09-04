@@ -4,6 +4,7 @@ import { Users, CheckCircle, XCircle, Edit, Trash2, Shield, UserCheck, UserX } f
 import { STORAGE_KEYS } from '../config/constants';
 import AdminHeader from '../components/AdminHeader';
 import { userAPI } from '../services/api';
+import { formatPrice } from '../utils/currencyFormatter';
 
 const AdminUserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -25,7 +26,7 @@ const AdminUserManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await userAPI.getAll();
+      const response = await userAPI.getAllWithTotals();
       setUsers(response.data.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch users');
@@ -220,6 +221,9 @@ const AdminUserManagement = () => {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Total Spent
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Joined
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -268,6 +272,16 @@ const AdminUserManagement = () => {
                         }`}>
                           {user.isVerified ? 'Verified' : 'Unverified'}
                         </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatPrice(user.totalSpent || 0)}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {user.orderCount || 0} orders
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

@@ -139,7 +139,7 @@ orderSchema.pre('save', async function(next) {
 
 // Virtual for order summary
 orderSchema.virtual('itemCount').get(function() {
-  return this.items.reduce((total, item) => total + item.qty, 0);
+  return this.items && Array.isArray(this.items) ? this.items.reduce((total, item) => total + item.qty, 0) : 0;
 });
 
 // Virtual for pre-order display

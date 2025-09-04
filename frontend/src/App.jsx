@@ -15,6 +15,7 @@ import CustomerOrders from './pages/CustomerOrders';
 import CustomerLogin from './pages/CustomerLogin';
 import CustomerRegister from './pages/CustomerRegister';
 import CustomerProfile from './pages/CustomerProfile';
+import FoodItemDetail from './pages/FoodItemDetail';
 
 // Admin Pages
 import AdminLogin from './pages/AdminLogin';
@@ -26,16 +27,18 @@ import AdminProfile from './pages/AdminProfile';
 import AdminUserManagement from './pages/AdminUserManagement';
 import AdminOrders from './pages/AdminOrders';
 import AdminMenu from './pages/AdminMenu';
+import AdminFeedback from './pages/AdminFeedback';
 
 // Components
 import AdminRoute from './components/AdminRoute';
+import Footer from './components/Footer';
 
 function App() {
   return (
     <ErrorBoundary>
       <AppProvider>
         <BrowserRouter>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
             <Routes>
               {/* Customer Routes */}
               <Route path={ROUTES.HOME} element={<Home />} />
@@ -45,6 +48,7 @@ function App() {
               <Route path="/pre-order-menu" element={<PreOrderMenu />} />
               <Route path="/order/:orderId" element={<OrderDetails />} />
               <Route path="/orders/:phone" element={<CustomerOrders />} />
+              <Route path="/item/:itemId" element={<FoodItemDetail />} />
               <Route path={ROUTES.LOGIN} element={<CustomerLogin />} />
               <Route path={ROUTES.REGISTER} element={<CustomerRegister />} />
               <Route path="/customer/register" element={<CustomerRegister />} />
@@ -150,7 +154,16 @@ function App() {
                   </AdminRoute>
                 } 
               />
+              <Route 
+                path="/admin/feedback" 
+                element={
+                  <AdminRoute>
+                    <AdminFeedback />
+                  </AdminRoute>
+                } 
+              />
             </Routes>
+            <Footer />
           </div>
         </BrowserRouter>
       </AppProvider>

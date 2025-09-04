@@ -100,7 +100,8 @@ const PreOrder = () => {
         // Legacy fields for backward compatibility
         isPreOrder: true,
         preOrderDateTime: preOrderDateTime.toISOString(),
-        createdBy: 'customer'
+        createdBy: customer?.role === 'employee' ? 'admin' : 'customer',
+        pricingTier: customer?.role === 'employee' ? 'inhouse' : 'standard'
       };
 
       console.log('Submitting pre-order:', orderData); // Debug log

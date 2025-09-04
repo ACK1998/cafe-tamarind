@@ -112,14 +112,31 @@ export const customerAPI = {
 // User Management API calls
 export const userAPI = {
   getAll: () => apiCallWithRetry(() => api.get('/admin/users')),
+  getAllWithTotals: () => apiCallWithRetry(() => api.get('/admin/customers/with-totals')),
   update: (userId, updates) => apiCallWithRetry(() => api.put(`/admin/users/${userId}`, updates)),
   delete: (userId) => apiCallWithRetry(() => api.delete(`/admin/users/${userId}`)),
 };
 
 // Feedback API calls
 export const feedbackAPI = {
-  submit: (feedbackData) => api.post('/feedback', feedbackData),
-  getAll: () => api.get('/admin/feedback'),
+  // Customer feedback operations (public)
+  submit: (feedbackData) => apiCallWithRetry(() => api.post('/feedback', feedbackData)),
+  canReview: (orderId, customerPhone) => apiCallWithRetry(() => 
+    api.get(`/feedback/can-review/${orderId}`, { params: { customerPhone } })
+  ),
+  getOrderFeedback: (orderId, customerPhone) => apiCallWithRetry(() => 
+    api.get(`/feedback/order/${orderId}`, { params: { customerPhone } })
+  ),
+  getMenuItemFeedback: (menuItemId, params = {}) => apiCallWithRetry(() => 
+    api.get(`/feedback/item/${menuItemId}`, { params })
+  ),
+  
+  // Admin feedback operations
+  getAll: (params = {}) => apiCallWithRetry(() => api.get('/feedback/admin/all', { params })),
+  getAnalytics: (period = '30d') => apiCallWithRetry(() => 
+    api.get('/feedback/admin/analytics', { params: { period } })
+  ),
+  delete: (feedbackId) => apiCallWithRetry(() => api.delete(`/feedback/admin/${feedbackId}`)),
 };
 
 export default api;

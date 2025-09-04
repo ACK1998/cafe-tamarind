@@ -197,7 +197,8 @@ const Checkout = () => {
         mealTime: finalMealTime,
         specialInstructions: formData.specialInstructions.trim() || '',
         orderType: 'NOW',
-        createdBy: 'customer'
+        createdBy: customer?.role === 'employee' ? 'admin' : 'customer',
+        pricingTier: customer?.role === 'employee' ? 'inhouse' : 'standard'
       };
 
       console.log('📦 Order data:', orderData);

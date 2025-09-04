@@ -189,7 +189,15 @@ const placeOrder = async (req, res) => {
         });
       }
 
-      const allowInHouse = pricingTier === 'inhouse' && req.user && req.user.role === 'admin';
+      // Allow in-house pricing if pricingTier is 'inhouse' and either:
+      // 1. Admin user (req.user.role === 'admin'), or
+      // 2. Employee customer (req.customer.role === 'employee'), or  
+      // 3. Order created by admin (createdBy === 'admin')
+      const allowInHouse = pricingTier === 'inhouse' && (
+        (req.user && req.user.role === 'admin') ||
+        (req.customer && req.customer.role === 'employee') ||
+        createdBy === 'admin'
+      );
       const unitPrice = allowInHouse && menuItem.inHousePrice != null
         ? menuItem.inHousePrice
         : menuItem.price;

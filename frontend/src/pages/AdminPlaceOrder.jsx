@@ -195,8 +195,9 @@ const AdminPlaceOrder = () => {
 
   const filteredItems = menuItems.filter(item => {
     const matchesCategory = selectedCategory === 'All Categories' || item.category === selectedCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (searchTerm === '') || 
+                         (item.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
 

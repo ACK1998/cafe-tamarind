@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import useStore from '../store/useStore';
+import ThemeToggle from './ThemeToggle';
 
 const AdminHeader = React.memo(() => {
   const { user, logout } = useStore();
@@ -25,11 +26,16 @@ const AdminHeader = React.memo(() => {
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      {/* Top Bar - Logo, Company Name, User Actions */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">T</span>
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center">
+              <img 
+                src="/logo.png" 
+                alt="Cafe Tamarind Logo" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
@@ -41,13 +47,35 @@ const AdminHeader = React.memo(() => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            <ThemeToggle />
+            <Link
+              to="/admin/profile"
+              className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+            >
+              Profile
+            </Link>
+            <button
+              onClick={logout}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors flex items-center"
+            >
+              <LogOut className="w-4 h-4 mr-1" />
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Navigation Bar */}
+      <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-1 py-2">
             <Link
               to="/admin/dashboard"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive('/admin/dashboard')
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
               }`}
             >
               Dashboard
@@ -56,8 +84,8 @@ const AdminHeader = React.memo(() => {
               to="/admin/orders-customer"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive('/admin/orders')
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
               }`}
             >
               Order Management
@@ -66,8 +94,8 @@ const AdminHeader = React.memo(() => {
               to="/admin/menu-customer"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive('/admin/menu')
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
               }`}
             >
               Menu Management
@@ -76,30 +104,23 @@ const AdminHeader = React.memo(() => {
               to="/admin/users"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive('/admin/users')
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
               }`}
             >
               User Management
             </Link>
             <Link
-              to="/admin/profile"
+              to="/admin/feedback"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/admin/profile')
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                isActive('/admin/feedback')
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
               }`}
             >
-              Profile
+              Reviews
             </Link>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors flex items-center"
-            >
-              <LogOut className="w-4 h-4 mr-1" />
-              Logout
-            </button>
-          </div>
+          </nav>
         </div>
       </div>
     </header>

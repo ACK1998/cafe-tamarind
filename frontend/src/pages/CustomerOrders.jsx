@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Clock, Package, ArrowLeft, AlertCircle, CheckCircle, Info, X } from 'lucide-react';
+import { Clock, Package, ArrowLeft, AlertCircle, CheckCircle, Info, X, Star, MessageCircle } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import ReviewModal from '../components/ReviewModal';
 import { STORAGE_KEYS } from '../config/constants';
-import { customerAPI } from '../services/api';
+import { customerAPI, feedbackAPI } from '../services/api';
 import { formatPrice } from '../utils/currencyFormatter';
 
 // Top-right Notification Component
@@ -79,6 +80,11 @@ const CustomerOrders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notification, setNotification] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+  const [reviewModal, setReviewModal] = useState({
+    isOpen: false,
+    order: null
+  });
+  const [orderReviews, setOrderReviews] = useState({});
 
   const showNotification = (title, message, type = 'info') => {
     setNotification({ isOpen: true, title, message, type });
@@ -86,6 +92,163 @@ const CustomerOrders = () => {
 
   const closeNotification = () => {
     setNotification({ isOpen: false, title: '', message: '', type: 'info' });
+  };
+
+  const openReviewModal = (order, e) => {
+    e.preventDefault(); // Prevent navigation
+    e.stopPropagation();
+    setReviewModal({
+      isOpen: true,
+      order
+    });
+  };
+
+  const closeReviewModal = () => {
+    setReviewModal({
+      isOpen: false,
+      order: null
+    });
+  };
+
+  const handleReviewSubmitted = () => {
+    showNotification(
+      'Reviews Submitted!',
+      'Thank you for your feedback. Your reviews help us improve.',
+      'success'
+    );
+    // Refresh orders to update review status
+    fetchOrders();
+  };
+
+  const openUpdateReviewModal = (order, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setReviewModal({
+      isOpen: true,
+      order,
+      isUpdate: true
+    });
+  };
+
+  const renderExistingReviews = (orderId) => {
+    const reviews = orderReviews[orderId] || [];
+    if (reviews.length === 0) return null;
+
+    // Group reviews by menu item
+    const reviewsByItem = reviews.reduce((acc, review) => {
+      const itemId = review.menuItemId._id;
+      if (!acc[itemId]) {
+        acc[itemId] = {
+          itemName: review.menuItemId.name,
+          food: null,
+          service: null
+        };
+      }
+      if (review.reviewType === 'food') {
+        acc[itemId].food = review;
+      } else if (review.reviewType === 'service') {
+        acc[itemId].service = review;
+      }
+      return acc;
+    }, {});
+
+    return (
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
+              <Star className="w-4 h-4 mr-2 text-yellow-500" />
+              Your Reviews
+            </h4>
+            <button
+              onClick={(e) => openUpdateReviewModal(orders.find(o => o._id === orderId), e)}
+              className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+            >
+              Update Reviews
+            </button>
+          </div>
+          
+          {Object.values(reviewsByItem).map((itemReviews, index) => (
+            <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+              <p className="font-medium text-sm text-gray-900 dark:text-white mb-2">
+                {itemReviews.itemName}
+              </p>
+              <div className="space-y-2 text-xs">
+                {itemReviews.food && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">Food:</span>
+                    <div className="flex items-center space-x-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-3 h-3 ${
+                            star <= itemReviews.food.rating
+                              ? 'text-yellow-400 fill-current'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                      <span className="ml-1 text-gray-600 dark:text-gray-300">
+                        ({itemReviews.food.rating})
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {itemReviews.service && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">Service:</span>
+                    <div className="flex items-center space-x-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-3 h-3 ${
+                            star <= itemReviews.service.rating
+                              ? 'text-yellow-400 fill-current'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                      <span className="ml-1 text-gray-600 dark:text-gray-300">
+                        ({itemReviews.service.rating})
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {(itemReviews.food?.comment || itemReviews.service?.comment) && (
+                  <p className="text-gray-600 dark:text-gray-300 italic">
+                    "{itemReviews.food?.comment || itemReviews.service?.comment}"
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const checkOrderReviews = async (orderId) => {
+    try {
+      const response = await feedbackAPI.getOrderFeedback(orderId, phone);
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Error fetching order reviews:', error);
+      return [];
+    }
+  };
+
+  // Load existing reviews when orders are fetched
+  const loadOrderReviews = async (orders) => {
+    const reviewsData = {};
+    for (const order of orders) {
+      if (order.status === 'completed') {
+        const reviews = await checkOrderReviews(order._id);
+        if (reviews.length > 0) {
+          reviewsData[order._id] = reviews;
+        }
+      }
+    }
+    setOrderReviews(reviewsData);
   };
 
   useEffect(() => {
@@ -97,8 +260,12 @@ const CustomerOrders = () => {
       setLoading(true);
       // Use the customerAPI service which has proper configuration
       const response = await customerAPI.getOrders();
-      setOrders(response.data.data);
+      const ordersData = response.data.data;
+      setOrders(ordersData);
       setError('');
+      
+      // Load existing reviews for completed orders
+      await loadOrderReviews(ordersData);
     } catch (err) {
       console.error('Error fetching orders:', err);
       setError('Failed to load order history');
@@ -212,43 +379,72 @@ const CustomerOrders = () => {
                   </div>
                 ) : (
                   orders.map((order) => (
-                    <Link
+                    <div
                       key={order._id}
-                      to={`/order/${order._id}`}
-                      className="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow"
+                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <h3 className="font-medium text-gray-900 dark:text-white">
-                              Order #{order.orderNumber}
-                            </h3>
-                            <span className={`status-badge ${getStatusColor(order.status)}`}>
-                              {order.status}
-                            </span>
+                      <Link
+                        to={`/order/${order._id}`}
+                        className="block"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <h3 className="font-medium text-gray-900 dark:text-white">
+                                Order #{order.orderNumber}
+                              </h3>
+                              <span className={`status-badge ${getStatusColor(order.status)}`}>
+                                {order.status}
+                              </span>
+                            </div>
+                            
+                            <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-300">
+                              <span className="flex items-center">
+                                <Clock className="w-4 h-4 mr-1" />
+                                {new Date(order.createdAt).toLocaleDateString()}
+                              </span>
+                              <span className="capitalize">
+                                {order.mealTime}
+                              </span>
+                              <span>
+                                {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
                           </div>
                           
-                          <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex items-center">
-                              <Clock className="w-4 h-4 mr-1" />
-                              {new Date(order.createdAt).toLocaleDateString()}
-                            </span>
-                            <span className="capitalize">
-                              {order.mealTime}
-                            </span>
-                            <span>
-                              {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                            </span>
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900 dark:text-white">
+                              ₹{order.total.toFixed(0)}
+                            </p>
                           </div>
                         </div>
-                        
-                        <div className="text-right">
-                          <p className="font-semibold text-gray-900 dark:text-white">
-                            ₹{order.total.toFixed(0)}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
+                      </Link>
+                      
+                      {/* Review Section */}
+                      {order.status === 'completed' && (
+                        <>
+                          {orderReviews[order._id] && orderReviews[order._id].length > 0 ? (
+                            renderExistingReviews(order._id)
+                          ) : (
+                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
+                                  <Star className="w-4 h-4" />
+                                  <span>How was your experience?</span>
+                                </div>
+                                <button
+                                  onClick={(e) => openReviewModal(order, e)}
+                                  className="btn-outline btn-sm flex items-center space-x-1"
+                                >
+                                  <MessageCircle className="w-4 h-4" />
+                                  <span>Leave Review</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   ))
                 )}
               </div>
@@ -256,6 +452,16 @@ const CustomerOrders = () => {
           </div>
         </div>
       </div>
+
+      {/* Review Modal */}
+      <ReviewModal
+        isOpen={reviewModal.isOpen}
+        onClose={closeReviewModal}
+        order={reviewModal.order}
+        customerPhone={phone}
+        onReviewSubmitted={handleReviewSubmitted}
+        isUpdate={reviewModal.isUpdate}
+      />
     </div>
   );
 };

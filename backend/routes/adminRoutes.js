@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const customerController = require('../controllers/customerController');
 const { protect, admin } = require('../middlewares/authMiddleware');
 const { body } = require('express-validator');
 
@@ -22,5 +23,8 @@ router.get('/users/role/:role', adminController.getUsersByRole);
 router.get('/users/:id', adminController.getUserById);
 router.put('/users/:id', validateUserUpdate, adminController.updateUser);
 router.delete('/users/:id', adminController.deleteUser);
+
+// Customer management routes with order totals
+router.get('/customers/with-totals', customerController.getAllCustomersWithOrderTotals);
 
 module.exports = router;

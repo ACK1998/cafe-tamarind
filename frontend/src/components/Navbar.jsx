@@ -59,8 +59,12 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">T</span>
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center">
+              <img 
+                src="/logo.png" 
+                alt="Cafe Tamarind Logo" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <span className="text-xl font-bold text-gray-900 dark:text-white">
               Cafe Tamarind

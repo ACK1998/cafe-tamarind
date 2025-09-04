@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const { protect, admin, optionalAuth } = require('../middlewares/authMiddleware');
+const { optionalCustomerAuth } = require('../middlewares/customerAuth');
 const {
   placeOrder,
   getOrder,
@@ -63,8 +64,8 @@ const statusValidation = [
 ];
 
 // Customer routes (no authentication required)
-// Allow optional auth; server will honor inhouse pricing only if admin
-router.post('/', optionalAuth, orderValidation, placeOrder);
+// Allow optional auth; server will honor inhouse pricing for admin or employee customers
+router.post('/', optionalAuth, optionalCustomerAuth, orderValidation, placeOrder);
 router.get('/:orderId', getOrder);
 router.get('/customer/:phone', getCustomerOrders);
 

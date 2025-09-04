@@ -56,4 +56,27 @@ const customerAuth = async (req, res, next) => {
   }
 };
 
-module.exports = customerAuth;
+// Optional customer authentication - doesn't fail if no token
+const optionalCustomerAuth = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const customer = await Customer.findById(decoded.customerId);
+
+      if (customer && customer.isActive) {
+        req.customerId = customer._id;
+        req.customer = customer;
+      }
+    }
+    
+    next();
+  } catch (error) {
+    // Token is invalid, but we don't fail the request
+    console.log('Optional customer auth token invalid:', error.message);
+    next();
+  }
+};
+
+module.exports = { customerAuth, optionalCustomerAuth };

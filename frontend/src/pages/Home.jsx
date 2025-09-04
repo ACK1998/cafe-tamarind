@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, ShoppingCart, User } from 'lucide-react';
+import { Search, Filter, ShoppingCart } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import MenuItemCard from '../components/MenuItemCard';
 import useStore from '../store/useStore';
@@ -9,7 +9,7 @@ import axios from 'axios';
 
 const Home = () => {
   const navigate = useNavigate();
-  const { cart, isAuthenticated } = useStore();
+  const { cart } = useStore();
 
   const cartItemCount = cart.reduce((total, item) => total + item.quantity, 0);
   
@@ -21,6 +21,7 @@ const Home = () => {
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [stockFilter, setStockFilter] = useState('all'); // 'all', 'in-stock', 'out-of-stock'
+  const [sortBy, setSortBy] = useState('default'); // 'default', 'rating-high', 'rating-low', 'name', 'price-low', 'price-high'
 
   useEffect(() => {
     fetchMenuItems();
@@ -79,30 +80,92 @@ const Home = () => {
     setSearchTerm(e.target.value);
   };
 
-  const filteredItems = menuItems.filter(item => {
-    const matchesCategory = selectedCategory === '' || item.category === selectedCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Stock filtering logic
-    let matchesStock = true;
-    if (stockFilter === 'in-stock') {
-      matchesStock = item.stock > 0;
-    } else if (stockFilter === 'out-of-stock') {
-      matchesStock = item.stock === 0;
-    }
-    
-    return matchesCategory && matchesSearch && matchesStock;
-  });
+  const filteredAndSortedItems = menuItems
+    .filter(item => {
+      const matchesCategory = selectedCategory === '' || item.category === selectedCategory;
+      const matchesSearch = (searchTerm === '') || 
+                           (item.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                           (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Stock filtering logic
+      let matchesStock = true;
+      if (stockFilter === 'in-stock') {
+        matchesStock = item.stock > 0;
+      } else if (stockFilter === 'out-of-stock') {
+        matchesStock = item.stock === 0;
+      }
+      
+      return matchesCategory && matchesSearch && matchesStock;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'rating-high':
+          // First: All items with ratings (sorted high to low)
+          // Then: All items without ratings (sorted by name)
+          if (a.rating && b.rating) {
+            // Both have ratings - sort by rating (high to low)
+            return b.rating - a.rating;
+          }
+          if (a.rating && !b.rating) {
+            // A has rating, B doesn't - A comes first
+            return -1;
+          }
+          if (!a.rating && b.rating) {
+            // B has rating, A doesn't - B comes first
+            return 1;
+          }
+          // Neither has rating - sort by name
+          return a.name.localeCompare(b.name);
+          
+        case 'rating-low':
+          // First: All items with ratings (sorted low to high)
+          // Then: All items without ratings (sorted by name)
+          if (a.rating && b.rating) {
+            // Both have ratings - sort by rating (low to high)
+            return a.rating - b.rating;
+          }
+          if (a.rating && !b.rating) {
+            // A has rating, B doesn't - A comes first
+            return -1;
+          }
+          if (!a.rating && b.rating) {
+            // B has rating, A doesn't - B comes first
+            return 1;
+          }
+          // Neither has rating - sort by name
+          return a.name.localeCompare(b.name);
+          
+        case 'name':
+          return a.name.localeCompare(b.name);
+          
+        case 'price-low':
+          return (a.price || 0) - (b.price || 0);
+          
+        case 'price-high':
+          return (b.price || 0) - (a.price || 0);
+          
+        default:
+          // Default sorting: items with ratings first, then by category, then by name
+          if (a.rating && !b.rating) return -1;
+          if (!a.rating && b.rating) return 1;
+          if (a.category !== b.category) {
+            return a.category.localeCompare(b.category);
+          }
+          return a.name.localeCompare(b.name);
+      }
+    });
 
-  const groupedItems = filteredItems.reduce((acc, item) => {
-    const category = item.category || 'OTHER ITEMS';
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(item);
-    return acc;
-  }, {});
+  // For rating sorts, don't group by category to maintain rating order
+  const groupedItems = (sortBy === 'rating-high' || sortBy === 'rating-low') 
+    ? { 'All Items': filteredAndSortedItems }
+    : filteredAndSortedItems.reduce((acc, item) => {
+        const category = item.category || 'OTHER ITEMS';
+        if (!acc[category]) {
+          acc[category] = [];
+        }
+        acc[category].push(item);
+        return acc;
+      }, {});
 
   const handleAddToCart = (item) => {
     // Add a subtle animation feedback
@@ -162,6 +225,20 @@ const Home = () => {
                 className="input-with-icon"
               />
             </div>
+
+            {/* Sort Dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            >
+              <option value="default">Sort by Default</option>
+              <option value="rating-high">Highest Rated</option>
+              <option value="rating-low">Lowest Rated</option>
+              <option value="name">Name (A-Z)</option>
+              <option value="price-low">Price (Low to High)</option>
+              <option value="price-high">Price (High to Low)</option>
+            </select>
 
             {/* Filter Toggle */}
             <button

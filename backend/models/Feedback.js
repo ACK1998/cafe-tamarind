@@ -3,8 +3,12 @@ const mongoose = require('mongoose');
 const feedbackSchema = new mongoose.Schema({
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User',
-    required: [true, 'User ID is required']
+    ref: 'User'
+  },
+  customerPhone: {
+    type: String,
+    required: [true, 'Customer phone is required'],
+    trim: true
   },
   orderId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -22,6 +26,11 @@ const feedbackSchema = new mongoose.Schema({
     min: [1, 'Rating must be at least 1'],
     max: [5, 'Rating cannot exceed 5']
   },
+  reviewType: {
+    type: String,
+    enum: ['food', 'service'],
+    required: [true, 'Review type is required']
+  },
   comment: { 
     type: String,
     trim: true,
@@ -36,12 +45,18 @@ const feedbackSchema = new mongoose.Schema({
 });
 
 // Index for efficient querying
-feedbackSchema.index({ menuItemId: 1, createdAt: -1 });
-feedbackSchema.index({ userId: 1, createdAt: -1 });
-feedbackSchema.index({ rating: 1 });
+feedbackSchema.index({ menuItemId: 1, reviewType: 1, createdAt: -1 });
+feedbackSchema.index({ customerPhone: 1, createdAt: -1 });
+feedbackSchema.index({ orderId: 1, customerPhone: 1 });
+feedbackSchema.index({ rating: 1, reviewType: 1 });
 
-// Ensure one feedback per user per menu item per order
-feedbackSchema.index({ userId: 1, orderId: 1, menuItemId: 1 }, { unique: true });
+// Ensure one feedback per customer per menu item per order per review type
+feedbackSchema.index({ 
+  customerPhone: 1, 
+  orderId: 1, 
+  menuItemId: 1, 
+  reviewType: 1 
+}, { unique: true });
 
 // Virtual for rating stars
 feedbackSchema.virtual('ratingStars').get(function() {

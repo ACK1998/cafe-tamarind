@@ -1,4 +1,5 @@
 const MenuItem = require('../models/MenuItem');
+const Feedback = require('../models/Feedback');
 const { validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 
@@ -25,10 +26,40 @@ const getMenuItems = async (req, res) => {
     const menuItems = await MenuItem.find(query)
       .sort({ category: 1, name: 1 });
 
+    // Get average ratings for each menu item
+    const menuItemsWithRatings = await Promise.all(
+      menuItems.map(async (item) => {
+        const ratings = await Feedback.aggregate([
+          {
+            $match: {
+              menuItemId: item._id,
+              reviewType: 'food' // Focus on food ratings for menu display
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              avgRating: { $avg: '$rating' },
+              reviewCount: { $sum: 1 }
+            }
+          }
+        ]);
+
+        const itemObj = item.toObject();
+        if (ratings.length > 0 && ratings[0].reviewCount >= 3) {
+          // Only show rating if there are at least 3 reviews
+          itemObj.rating = Math.round(ratings[0].avgRating * 10) / 10;
+          itemObj.reviewCount = ratings[0].reviewCount;
+        }
+
+        return itemObj;
+      })
+    );
+
     res.json({
       success: true,
-      count: menuItems.length,
-      data: menuItems
+      count: menuItemsWithRatings.length,
+      data: menuItemsWithRatings
     });
   } catch (error) {
     console.error('Get menu items error:', error);

@@ -284,3 +284,53 @@ exports.changePassword = async (req, res) => {
     });
   }
 };
+
+// Get all customers with order totals (Admin only)
+exports.getAllCustomersWithOrderTotals = async (req, res) => {
+  try {
+    const Order = require('../models/Order');
+    
+    // Get all customers
+    const customers = await Customer.find({}).select('-password').sort({ createdAt: -1 });
+    
+    // For each customer, calculate their total spending
+    const customersWithTotals = await Promise.all(
+      customers.map(async (customer) => {
+        // Find orders by customerId OR by customer name (for orders placed before account linking)
+        // This ensures we don't double-count orders that have both customerId and matching name
+        const orders = await Order.find({
+          $or: [
+            { customerId: customer._id },
+            { 
+              customerName: { $regex: new RegExp('^' + customer.name + '$', 'i') },
+              $or: [
+                { customerId: { $exists: false } },
+                { customerId: null }
+              ]
+            }
+          ]
+        });
+        
+        const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+        const orderCount = orders.length;
+        
+        return {
+          ...customer.toObject(),
+          totalSpent,
+          orderCount
+        };
+      })
+    );
+    
+    res.json({
+      success: true,
+      data: customersWithTotals
+    });
+  } catch (error) {
+    console.error('Get customers with totals error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};

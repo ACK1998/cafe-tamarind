@@ -575,7 +575,7 @@ const AdminOrders = () => {
                           {order.items.length} items
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                          {formatPrice(order.totalAmount)}
+                          {formatPrice(order.total)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
@@ -654,7 +654,7 @@ const AdminOrders = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
                     {menuItems
                       .filter(item => {
-                        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+                        const matchesSearch = (searchTerm === '') || (item.name?.toLowerCase().includes(searchTerm.toLowerCase()));
                         const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
                         return matchesSearch && matchesCategory;
                       })

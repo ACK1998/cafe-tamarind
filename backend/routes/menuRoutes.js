@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { body } = require('express-validator');
 const { protect, admin } = require('../middlewares/authMiddleware');
 const {
@@ -11,6 +12,7 @@ const {
   getPreOrderMenuItems
 } = require('../controllers/menuController');
 const MenuItem = require('../models/MenuItem');
+const Feedback = require('../models/Feedback');
 
 const router = express.Router();
 
@@ -60,10 +62,36 @@ router.get('/customer/:mealTime?', async (req, res) => {
 
     const menuItems = await MenuItem.find(query).sort({ category: 1, name: 1 });
     
+    // Get average ratings for each menu item
+    const menuItemsWithRatings = await Promise.all(
+      menuItems.map(async (item) => {
+        try {
+          // Use find instead of aggregate for simpler approach
+          const foodReviews = await Feedback.find({
+            menuItemId: item._id,
+            reviewType: 'food'
+          });
+
+          const itemObj = item.toObject();
+          
+          if (foodReviews.length >= 1) { // Show rating if 1+ reviews
+            const avgRating = foodReviews.reduce((sum, review) => sum + review.rating, 0) / foodReviews.length;
+            itemObj.rating = Math.round(avgRating * 10) / 10;
+            itemObj.reviewCount = foodReviews.length;
+          }
+
+          return itemObj;
+        } catch (err) {
+          console.error(`Error getting ratings for ${item.name}:`, err);
+          return item.toObject();
+        }
+      })
+    );
+    
     res.json({
       success: true,
-      data: menuItems,
-      count: menuItems.length
+      data: menuItemsWithRatings,
+      count: menuItemsWithRatings.length
     });
   } catch (error) {
     console.error('Error fetching customer menu:', error);
@@ -83,10 +111,36 @@ router.get('/inhouse/:mealTime?', async (req, res) => {
 
     const menuItems = await MenuItem.find(query).sort({ category: 1, name: 1 });
     
+    // Get average ratings for each menu item
+    const menuItemsWithRatings = await Promise.all(
+      menuItems.map(async (item) => {
+        try {
+          // Use find instead of aggregate for simpler approach
+          const foodReviews = await Feedback.find({
+            menuItemId: item._id,
+            reviewType: 'food'
+          });
+
+          const itemObj = item.toObject();
+          
+          if (foodReviews.length >= 1) { // Show rating if 1+ reviews
+            const avgRating = foodReviews.reduce((sum, review) => sum + review.rating, 0) / foodReviews.length;
+            itemObj.rating = Math.round(avgRating * 10) / 10;
+            itemObj.reviewCount = foodReviews.length;
+          }
+
+          return itemObj;
+        } catch (err) {
+          console.error(`Error getting ratings for ${item.name}:`, err);
+          return item.toObject();
+        }
+      })
+    );
+    
     res.json({
       success: true,
-      data: menuItems,
-      count: menuItems.length
+      data: menuItemsWithRatings,
+      count: menuItemsWithRatings.length
     });
   } catch (error) {
     console.error('Error fetching in-house menu:', error);
