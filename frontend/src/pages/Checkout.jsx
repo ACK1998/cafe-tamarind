@@ -79,9 +79,9 @@ const Checkout = () => {
 
     setError('');
 
-    // Check if OTP is disabled
+    // Check if OTP is disabled in configuration
     if (!FEATURE_CONFIG.OTP_ENABLED) {
-      // Skip OTP and place order directly
+      // Skip OTP verification and place order directly
       await placeOrder();
       return;
     }
