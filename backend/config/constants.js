@@ -26,6 +26,7 @@ const ORDER_CONFIG = {
     PREPARING: 'preparing',
     READY: 'ready',
     COMPLETED: 'completed',
+    PAID: 'paid',
     CANCELLED: 'cancelled'
   },
   TYPES: {

@@ -1,12 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
 import useStore from '../store/useStore';
 import ThemeToggle from './ThemeToggle';
 
 const AdminHeader = React.memo(() => {
   const { user, logout } = useStore();
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isActive = useMemo(() => {
     return (path) => {
@@ -47,7 +48,8 @@ const AdminHeader = React.memo(() => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-3">
+          {/* Desktop Actions */}
+          <div className="hidden md:flex items-center space-x-3">
             <ThemeToggle />
             <Link
               to="/admin/profile"
@@ -63,11 +65,25 @@ const AdminHeader = React.memo(() => {
               Logout
             </button>
           </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white p-2"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
       
-      {/* Navigation Bar */}
-      <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+      {/* Desktop Navigation Bar */}
+      <div className="hidden md:block border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-1 py-2">
             <Link
@@ -123,6 +139,93 @@ const AdminHeader = React.memo(() => {
           </nav>
         </div>
       </div>
+
+      {/* Mobile Navigation */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="px-2 pt-2 pb-3 space-y-1">
+            <Link
+              to="/admin/dashboard"
+              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                isActive('/admin/dashboard')
+                  ? 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Dashboard
+            </Link>
+            <Link
+              to="/admin/orders-customer"
+              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                isActive('/admin/orders')
+                  ? 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Order Management
+            </Link>
+            <Link
+              to="/admin/menu-customer"
+              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                isActive('/admin/menu')
+                  ? 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Menu Management
+            </Link>
+            <Link
+              to="/admin/users"
+              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                isActive('/admin/users')
+                  ? 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              User Management
+            </Link>
+            <Link
+              to="/admin/feedback"
+              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                isActive('/admin/feedback')
+                  ? 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Reviews
+            </Link>
+            
+            {/* Mobile Actions */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+              <div className="px-3 py-2">
+                <ThemeToggle />
+              </div>
+              <Link
+                to="/admin/profile"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Profile
+              </Link>
+              <button
+                onClick={() => {
+                  logout();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors flex items-center"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 });

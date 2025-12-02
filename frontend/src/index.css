@@ -73,6 +73,10 @@
   .status-completed {
     @apply status-badge bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200;
   }
+
+  .status-paid {
+    @apply status-badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
   
   .status-cancelled {
     @apply status-badge bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
@@ -702,6 +706,106 @@
 .otp-input:focus {
   @apply outline-none ring-2 ring-orange-500 border-orange-500;
   transform: scale(1.05);
+}
+
+/* Admin Dashboard Mobile Enhancements */
+@media (max-width: 640px) {
+  .admin-stats-grid {
+    gap: 0.75rem;
+  }
+  
+  .admin-stat-card {
+    min-height: 80px;
+  }
+  
+  .admin-order-card {
+    @apply shadow-sm border-l-4;
+  }
+  
+  .admin-order-card.pending {
+    @apply border-l-yellow-400;
+  }
+  
+  .admin-order-card.confirmed {
+    @apply border-l-blue-400;
+  }
+  
+  .admin-order-card.preparing {
+    @apply border-l-orange-400;
+  }
+  
+  .admin-order-card.ready {
+    @apply border-l-green-400;
+  }
+  
+  .admin-order-card.completed {
+    @apply border-l-gray-400;
+  }
+}
+
+/* Ensure Lucide React icons display properly */
+.admin-dashboard svg {
+  display: inline-block !important;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Icon container styling */
+.admin-dashboard .icon-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+}
+
+/* Force icon visibility */
+.admin-dashboard .lucide {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* Fallback emoji icons when SVG fails */
+.admin-dashboard .icon-container .lucide:not(:visible) + span,
+.admin-dashboard .icon-container:has(.lucide[style*="display: none"]) span {
+  display: block !important;
+}
+
+/* Hide emoji when SVG is visible */
+.admin-dashboard .icon-container:has(.lucide:not([style*="display: none"])) span[style*="display: none"] {
+  display: none !important;
+}
+
+/* Alternative approach - show emoji if no SVG content */
+@supports not (selector(:has(*))) {
+  .admin-dashboard .icon-container span {
+    display: block !important;
+  }
+  .admin-dashboard .icon-container .lucide {
+    display: none !important;
+  }
+}
+
+/* Enhanced card hover effects for admin dashboard */
+.admin-dashboard .card {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+.admin-dashboard .card:hover {
+  @apply shadow-lg transform scale-105;
+}
+
+/* Mobile-first button styling */
+@media (max-width: 640px) {
+  .btn-primary, .btn-outline {
+    @apply text-sm px-4 py-2.5 font-medium;
+    min-height: 40px;
+  }
+  
+  .status-badge {
+    @apply text-xs px-2 py-1;
+  }
 }
 
 .otp-input.filled {

@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Minus, ShoppingCart, User, Search, Filter } from 'luci
 import { STORAGE_KEYS } from '../config/constants';
 import axios from 'axios';
 import { formatPrice } from '../utils/currencyFormatter';
+import { printKot } from '../utils/printUtils';
 import useStore from '../store/useStore';
 
 const AdminPlaceOrder = () => {
@@ -171,6 +172,7 @@ const AdminPlaceOrder = () => {
       };
 
       const response = await axios.post('/api/orders', orderData);
+      const createdOrder = response?.data?.data;
       
       setSuccess(`Order placed successfully! Order #${response.data.data.orderNumber}`);
       clearCart();
@@ -182,6 +184,10 @@ const AdminPlaceOrder = () => {
       });
       
       // Redirect to admin dashboard after 2 seconds
+      if (createdOrder) {
+        printKot(createdOrder);
+      }
+      
       setTimeout(() => {
         navigate('/admin/dashboard');
       }, 2000);

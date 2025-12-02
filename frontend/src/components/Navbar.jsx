@@ -255,6 +255,11 @@ const Navbar = () => {
                   Sign In
                 </Link>
               )}
+              
+              {/* Theme Toggle for Mobile */}
+              <div className="px-3 py-2">
+                <ThemeToggle />
+              </div>
             </div>
           </div>
         )}

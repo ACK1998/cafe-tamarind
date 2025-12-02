@@ -6,6 +6,7 @@ import { STORAGE_KEYS } from '../config/constants';
 import AdminHeader from '../components/AdminHeader';
 import { formatPrice } from '../utils/currencyFormatter';
 import { ordersAPI, menuAPI } from '../services/api';
+import { printKot, printBill } from '../utils/printUtils';
 
 // Top-right Notification Component
 const Notification = ({ isOpen, onClose, title, message, type = 'info' }) => {
@@ -85,10 +86,10 @@ const AdminOrders = () => {
     preparing: 0,
     ready: 0
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [orderType, setOrderType] = useState('customer'); // 'customer' or 'inhouse'
-  const [viewMode, setViewMode] = useState('view'); // 'view' or 'place'
+  const [viewMode, setViewMode] = useState('place'); // 'view' or 'place'
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -164,7 +165,16 @@ const AdminOrders = () => {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      await ordersAPI.updateStatus(orderId, newStatus);
+      const response = await ordersAPI.updateStatus(orderId, newStatus);
+      const updatedOrder = response?.data?.data;
+
+      if (newStatus === 'confirmed' && updatedOrder) {
+        printKot(updatedOrder);
+      }
+
+      if (newStatus === 'completed' && updatedOrder) {
+        printBill(updatedOrder);
+      }
       
       // Refresh orders
       fetchOrders();
@@ -256,22 +266,21 @@ const AdminOrders = () => {
 
     try {
       const orderData = {
-        customerName: customerInfo.name,
-        phone: customerInfo.phone,
+        customerName: customerInfo.name.trim(),
+        customerPhone: customerInfo.phone.trim(),
         mealTime: customerInfo.mealTime,
-        specialInstructions: customerInfo.specialInstructions,
+        specialInstructions: customerInfo.specialInstructions.trim(),
         items: cart.map(item => ({
           menuItemId: item._id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          portion: item.portion || 'Regular'
+          qty: item.quantity
         })),
-        totalAmount: getCartTotal(),
-        orderType: orderType
+        createdBy: 'admin',
+        pricingTier: orderType === 'inhouse' ? 'inhouse' : 'standard',
+        orderType: 'NOW'
       };
 
       const response = await ordersAPI.createAdmin(orderData);
+      const createdOrder = response?.data?.data;
 
       showNotification('Success', 'Order placed successfully!', 'success');
       setCart([]);
@@ -282,6 +291,10 @@ const AdminOrders = () => {
         specialInstructions: ''
       });
       setViewMode('view');
+
+      if (createdOrder) {
+        printKot(createdOrder);
+      }
     } catch (err) {
       console.error('Error placing order:', err);
       showNotification('Error', 'Failed to place order', 'error');
@@ -300,6 +313,8 @@ const AdminOrders = () => {
         return 'status-ready';
       case 'completed':
         return 'status-completed';
+      case 'paid':
+        return 'status-paid';
       case 'cancelled':
         return 'status-cancelled';
       default:
@@ -311,6 +326,7 @@ const AdminOrders = () => {
     switch (status) {
       case 'ready':
       case 'completed':
+      case 'paid':
         return <CheckCircle className="w-4 h-4" />;
       case 'pending':
         return <Clock className="w-4 h-4" />;
@@ -319,7 +335,7 @@ const AdminOrders = () => {
     }
   };
 
-  if (loading) {
+  if (loading && viewMode === 'view') {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="flex items-center justify-center min-h-screen">
@@ -587,18 +603,40 @@ const AdminOrders = () => {
                           {new Date(order.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <select
-                            value={order.status}
-                            onChange={(e) => updateOrderStatus(order._id, e.target.value)}
-                            className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="confirmed">Confirmed</option>
-                            <option value="preparing">Preparing</option>
-                            <option value="ready">Ready</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => printKot(order)}
+                              className="btn-outline px-3 py-1 text-xs"
+                            >
+                              Print KOT
+                            </button>
+                            <button
+                              onClick={() => printBill(order)}
+                              className="btn-outline px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={!['ready', 'completed', 'paid'].includes(order.status)}
+                            >
+                              Print Bill
+                            </button>
+                            <button
+                              onClick={() => {
+                                const statusFlow = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'paid'];
+                                const currentIndex = statusFlow.indexOf(order.status);
+                                if (currentIndex !== -1 && currentIndex < statusFlow.length - 1) {
+                                  updateOrderStatus(order._id, statusFlow[currentIndex + 1]);
+                                }
+                              }}
+                              className="btn-primary px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={['paid', 'cancelled'].includes(order.status)}
+                            >
+                              {order.status === 'pending' && 'Confirm'}
+                              {order.status === 'confirmed' && 'Start Prep'}
+                              {order.status === 'preparing' && 'Mark Ready'}
+                              {order.status === 'ready' && 'Complete'}
+                              {order.status === 'completed' && 'Mark Paid'}
+                              {order.status === 'paid' && 'Paid'}
+                              {order.status === 'cancelled' && 'Cancelled'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -651,38 +689,73 @@ const AdminOrders = () => {
                   </div>
 
                   {/* Menu Items Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
                     {menuItems
                       .filter(item => {
                         const matchesSearch = (searchTerm === '') || (item.name?.toLowerCase().includes(searchTerm.toLowerCase()));
                         const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
                         return matchesSearch && matchesCategory;
                       })
-                      .map((item) => (
-                        <div key={item._id} className="card p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h3 className="font-semibold text-gray-900 dark:text-white">{item.name}</h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">{item.category}</p>
-                              {orderType === 'inhouse' && item.portion && (
-                                <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
-                                  {item.portion} Portion
-                                </p>
-                              )}
+                      .sort((a, b) => {
+                        const aInStock = (a.isAvailable ?? true) && a.stock > 0;
+                        const bInStock = (b.isAvailable ?? true) && b.stock > 0;
+
+                        if (aInStock !== bInStock) {
+                          return aInStock ? -1 : 1;
+                        }
+
+                        if (aInStock && bInStock && a.category !== b.category) {
+                          return (a.category || '').localeCompare(b.category || '');
+                        }
+
+                        return (a.name || '').localeCompare(b.name || '');
+                      })
+                      .map((item) => {
+                        const inStock = (item.isAvailable ?? true) && item.stock > 0;
+                        const displayPrice = orderType === 'inhouse' && item.inHousePrice ? item.inHousePrice : item.price;
+
+                        return (
+                          <div key={item._id} className="card p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <h3 className="font-semibold text-gray-900 dark:text-white">{item.name}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{item.category}</p>
+                                {orderType === 'inhouse' && item.portion && (
+                                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                                    {item.portion} Portion
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <span className="text-lg font-bold text-gray-900 dark:text-white block">
+                                  {formatPrice(displayPrice)}
+                                </span>
+                                <span
+                                  className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                    inStock
+                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                      : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                  }`}
+                                >
+                                  {inStock ? `${item.stock} in stock` : 'Out of stock'}
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-lg font-bold text-gray-900 dark:text-white">
-                              {formatPrice(orderType === 'inhouse' && item.inHousePrice ? item.inHousePrice : item.price)}
-                            </span>
+                            
+                            <button
+                              onClick={() => addToCart(item)}
+                              className={`w-full btn-primary text-sm py-2 ${!inStock ? 'opacity-60 cursor-not-allowed' : ''}`}
+                              disabled={!inStock}
+                            >
+                              {getItemQuantity(item) > 0 && inStock
+                                ? `+ Add (${getItemQuantity(item)})`
+                                : inStock
+                                  ? '+ Add'
+                                  : 'Unavailable'}
+                            </button>
                           </div>
-                          
-                          <button
-                            onClick={() => addToCart(item)}
-                            className="w-full btn-primary text-sm py-2"
-                          >
-                            {getItemQuantity(item) > 0 ? `+ Add (${getItemQuantity(item)})` : '+ Add'}
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 </div>
               </div>

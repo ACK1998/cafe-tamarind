@@ -68,7 +68,7 @@ const orderSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'], 
+    enum: ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'paid', 'cancelled'], 
     default: 'pending'
   },
   // Order type and scheduling
@@ -100,6 +100,9 @@ const orderSchema = new mongoose.Schema({
     type: Date
   },
   actualReadyTime: {
+    type: Date
+  },
+  paidAt: {
     type: Date
   },
   orderNumber: {

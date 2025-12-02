@@ -4,7 +4,7 @@ import { Clock, Package, ArrowLeft, AlertCircle, CheckCircle, Info, X, Star, Mes
 import Navbar from '../components/Navbar';
 import ReviewModal from '../components/ReviewModal';
 import { STORAGE_KEYS } from '../config/constants';
-import { customerAPI, feedbackAPI } from '../services/api';
+import { customerAPI, feedbackAPI, ledgerAPI } from '../services/api';
 import { formatPrice } from '../utils/currencyFormatter';
 
 // Top-right Notification Component
@@ -85,6 +85,12 @@ const CustomerOrders = () => {
     order: null
   });
   const [orderReviews, setOrderReviews] = useState({});
+  const [ledgerSummary, setLedgerSummary] = useState(null);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerError, setLedgerError] = useState('');
+  const lastLedgerSettlement = ledgerSummary?.settlements?.length
+    ? ledgerSummary.settlements[ledgerSummary.settlements.length - 1]
+    : null;
 
   const showNotification = (title, message, type = 'info') => {
     setNotification({ isOpen: true, title, message, type });
@@ -269,6 +275,7 @@ const CustomerOrders = () => {
 
   useEffect(() => {
     fetchOrders();
+    fetchLedger();
   }, [phone]);
 
   const fetchOrders = async () => {
@@ -288,6 +295,24 @@ const CustomerOrders = () => {
       showNotification('Error', 'Failed to load order history', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLedger = async () => {
+    try {
+      setLedgerLoading(true);
+      setLedgerError('');
+
+      const response = await ledgerAPI.getCustomerLedgerByPhone(phone);
+      const ledgers = response?.data?.data || [];
+      const openLedger = ledgers.find((entry) => entry.status === 'open') || ledgers[0] || null;
+      setLedgerSummary(openLedger || null);
+    } catch (err) {
+      console.error('Error fetching customer ledger:', err);
+      setLedgerSummary(null);
+      setLedgerError(err.response?.data?.message || 'Unable to load outstanding balance');
+    } finally {
+      setLedgerLoading(false);
     }
   };
 
@@ -357,6 +382,47 @@ const CustomerOrders = () => {
               >
                 New Order
               </Link>
+            </div>
+
+            <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20 p-4">
+              <div className="flex flex-wrap justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Outstanding Balance
+                  </p>
+                  <p className="text-2xl font-semibold text-blue-900 dark:text-blue-100">
+                    {ledgerLoading
+                      ? 'Loading...'
+                      : ledgerSummary
+                        ? formatPrice(ledgerSummary.balance || 0)
+                        : formatPrice(0)}
+                  </p>
+                  {ledgerSummary?.status === 'settled' && ledgerSummary.balance === 0 && (
+                    <p className="mt-1 text-sm text-green-700 dark:text-green-300">
+                      Balance settled
+                    </p>
+                  )}
+                </div>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p>Total Orders: {ledgerSummary ? formatPrice(ledgerSummary.totalOrdersAmount || 0) : formatPrice(0)}</p>
+                  <p>Total Payments: {ledgerSummary ? formatPrice(ledgerSummary.totalPaymentsAmount || 0) : formatPrice(0)}</p>
+                  {lastLedgerSettlement && (
+                    <p className="text-xs mt-1">
+                      Last settlement: {new Date(lastLedgerSettlement.recordedAt).toLocaleString()} ({formatPrice(lastLedgerSettlement.amount)})
+                    </p>
+                  )}
+                </div>
+              </div>
+              {ledgerError && !ledgerLoading && (
+                <p className="mt-3 text-sm text-red-700 dark:text-red-300">
+                  {ledgerError}
+                </p>
+              )}
+              {!ledgerError && !ledgerLoading && !ledgerSummary && (
+                <p className="mt-3 text-sm text-blue-800 dark:text-blue-200">
+                  No outstanding balance at this time.
+                </p>
+              )}
             </div>
 
             {loading && (

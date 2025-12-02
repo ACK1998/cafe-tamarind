@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, ShoppingCart, User, Search, Filter, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, ShoppingCart, User, Search, Users } from 'lucide-react';
 import { STORAGE_KEYS } from '../config/constants';
 import axios from 'axios';
 import { formatPrice } from '../utils/currencyFormatter';
 import useStore from '../store/useStore';
+import { ledgerAPI } from '../services/api';
 
 const AdminCustomerOrder = () => {
   const navigate = useNavigate();
@@ -28,11 +29,60 @@ const AdminCustomerOrder = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
   const [cartTotal, setCartTotal] = useState(0);
+  const [customerLedger, setCustomerLedger] = useState(null);
+  const [customerLedgerLoading, setCustomerLedgerLoading] = useState(false);
+  const [customerLedgerError, setCustomerLedgerError] = useState('');
+  const [ledgerRequestKey, setLedgerRequestKey] = useState(0);
+  const [settlementNote, setSettlementNote] = useState('');
+  const [settlementMethod, setSettlementMethod] = useState('cash');
+  const [settlementLoading, setSettlementLoading] = useState(false);
+  const lastCustomerSettlement = customerLedger?.settlements?.length
+    ? customerLedger.settlements[customerLedger.settlements.length - 1]
+    : null;
 
   useEffect(() => {
     fetchMenuItems();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    const phone = formData.customerPhone.trim();
+    if (!phone || phone.length < 4) {
+      setCustomerLedger(null);
+      setCustomerLedgerError('');
+      setCustomerLedgerLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setCustomerLedgerLoading(true);
+    setCustomerLedgerError('');
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await ledgerAPI.getCustomerLedgerByPhone(phone);
+        if (isCancelled) return;
+
+        const ledgers = response?.data?.data || [];
+        const openLedger = ledgers.find((entry) => entry.status === 'open') || ledgers[0] || null;
+        setCustomerLedger(openLedger || null);
+      } catch (err) {
+        if (isCancelled) return;
+        console.error('Error fetching customer ledger:', err);
+        setCustomerLedger(null);
+        setCustomerLedgerError(err.response?.data?.message || 'Unable to fetch outstanding balance');
+      } finally {
+        if (!isCancelled) {
+          setCustomerLedgerLoading(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [formData.customerPhone, ledgerRequestKey]);
 
   const fetchMenuItems = async () => {
     try {
@@ -132,6 +182,36 @@ const AdminCustomerOrder = () => {
     setCartTotal(total);
   };
 
+  const refreshCustomerLedger = () => {
+    setLedgerRequestKey(prev => prev + 1);
+  };
+
+  const handleCustomerLedgerSettlement = async () => {
+    if (!customerLedger || customerLedger.balance <= 0) {
+      return;
+    }
+
+    try {
+      setSettlementLoading(true);
+      setCustomerLedgerError('');
+
+      await ledgerAPI.settleCustomerLedger(customerLedger._id, {
+        note: settlementNote.trim() || undefined,
+        paymentMethod: settlementMethod || undefined
+      });
+
+      setSettlementNote('');
+      setSettlementMethod('cash');
+      refreshCustomerLedger();
+      setSuccess('Customer balance settled successfully.');
+    } catch (err) {
+      console.error('Customer ledger settlement error:', err);
+      setCustomerLedgerError(err.response?.data?.message || 'Failed to settle balance');
+    } finally {
+      setSettlementLoading(false);
+    }
+  };
+
   const clearCart = () => {
     setCart([]);
     setCartTotal(0);
@@ -178,6 +258,8 @@ const AdminCustomerOrder = () => {
         mealTime: 'lunch',
         specialInstructions: ''
       });
+
+      refreshCustomerLedger();
       
       // Redirect to admin dashboard after 2 seconds
       setTimeout(() => {
@@ -191,12 +273,27 @@ const AdminCustomerOrder = () => {
     }
   };
 
-  const filteredItems = menuItems.filter(item => {
-    const matchesCategory = selectedCategory === 'All Categories' || item.category === selectedCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesCategory && matchesSearch;
-  });
+  const filteredItems = menuItems
+    .filter(item => {
+      const matchesCategory = selectedCategory === 'All Categories' || item.category === selectedCategory;
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchesCategory && matchesSearch;
+    })
+    .sort((a, b) => {
+      const aInStock = (a.isAvailable ?? true) && a.stock > 0;
+      const bInStock = (b.isAvailable ?? true) && b.stock > 0;
+
+      if (aInStock !== bInStock) {
+        return aInStock ? -1 : 1;
+      }
+
+      if (aInStock && bInStock && a.category !== b.category) {
+        return a.category.localeCompare(b.category);
+      }
+
+      return a.name.localeCompare(b.name);
+    });
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -310,40 +407,60 @@ const AdminCustomerOrder = () => {
 
                 {/* Menu Items */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                  {filteredItems.map((item) => (
-                    <div
-                      key={item._id}
-                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-medium text-gray-900 dark:text-white">
-                          {item.name}
-                        </h3>
-                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                          {formatPrice(item.price)}
-                        </span>
+                  {filteredItems.map((item) => {
+                    const inStock = (item.isAvailable ?? true) && item.stock > 0;
+
+                    return (
+                      <div
+                        key={item._id}
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-medium text-gray-900 dark:text-white">
+                              {item.name}
+                            </h3>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-lg font-bold text-blue-600 dark:text-blue-400 block">
+                              {formatPrice(item.price)}
+                            </span>
+                            <span
+                              className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                inStock
+                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                              }`}
+                            >
+                              {inStock ? `${item.stock} in stock` : 'Out of stock'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {item.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                            {item.description}
+                          </p>
+                        )}
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {item.category}
+                          </span>
+                          <button
+                            onClick={() => addToCart(item)}
+                            className={`btn-primary text-sm px-3 py-1 flex items-center ${
+                              !inStock ? 'opacity-60 cursor-not-allowed' : ''
+                            }`}
+                            disabled={!inStock}
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            {inStock ? 'Add' : 'Unavailable'}
+                          </button>
+                        </div>
                       </div>
-                      
-                      {item.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                          {item.description}
-                        </p>
-                      )}
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {item.category}
-                        </span>
-                        <button
-                          onClick={() => addToCart(item)}
-                          className="btn-primary text-sm px-3 py-1"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -389,6 +506,119 @@ const AdminCustomerOrder = () => {
                       placeholder="Enter phone number"
                     />
                   </div>
+
+                {formData.customerPhone.trim() !== '' && (
+                  <div className="mt-4">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Customer Balance
+                          </p>
+                          <p className="text-2xl font-semibold text-blue-900 dark:text-blue-100">
+                            {customerLedger ? formatPrice(customerLedger.balance || 0) : '—'}
+                          </p>
+                          {customerLedger?.status === 'settled' && customerLedger.balance === 0 && (
+                            <p className="mt-1 text-sm text-green-700 dark:text-green-300">
+                              Balance settled
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={refreshCustomerLedger}
+                          className="btn-outline text-sm"
+                          disabled={customerLedgerLoading}
+                        >
+                          Refresh
+                        </button>
+                      </div>
+
+                      {customerLedgerLoading && (
+                        <div className="mt-4 flex items-center text-sm text-blue-800 dark:text-blue-200">
+                          <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600 mr-2" />
+                          Loading ledger details...
+                        </div>
+                      )}
+
+                      {!customerLedgerLoading && customerLedgerError && (
+                        <p className="mt-3 text-sm text-red-700 dark:text-red-300">
+                          {customerLedgerError}
+                        </p>
+                      )}
+
+                      {!customerLedgerLoading && !customerLedgerError && !customerLedger && (
+                        <p className="mt-3 text-sm text-blue-800 dark:text-blue-200">
+                          No outstanding balance for this phone number.
+                        </p>
+                      )}
+
+                      {!customerLedgerLoading && customerLedger && (
+                        <div className="mt-4 space-y-3 text-sm text-blue-900 dark:text-blue-100">
+                          <div className="flex justify-between">
+                            <span>Total Orders</span>
+                            <span>{formatPrice(customerLedger.totalOrdersAmount || 0)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Total Payments</span>
+                            <span>{formatPrice(customerLedger.totalPaymentsAmount || 0)}</span>
+                          </div>
+                          {lastCustomerSettlement && (
+                            <div className="text-xs text-blue-700 dark:text-blue-200">
+                              Last settlement: {new Date(lastCustomerSettlement.recordedAt).toLocaleString()} ({formatPrice(lastCustomerSettlement.amount)})
+                            </div>
+                          )}
+
+                          {customerLedger.balance > 0 ? (
+                            <div className="grid gap-3 md:grid-cols-3">
+                              <div className="md:col-span-1">
+                                <label className="block text-xs font-medium mb-1">
+                                  Payment Method
+                                </label>
+                                <select
+                                  value={settlementMethod}
+                                  onChange={(e) => setSettlementMethod(e.target.value)}
+                                  className="input text-sm"
+                                >
+                                  <option value="cash">Cash</option>
+                                  <option value="upi">UPI</option>
+                                  <option value="card">Card</option>
+                                  <option value="other">Other</option>
+                                </select>
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs font-medium mb-1">
+                                  Payment Note (optional)
+                                </label>
+                                <textarea
+                                  value={settlementNote}
+                                  onChange={(e) => setSettlementNote(e.target.value)}
+                                  rows={2}
+                                  className="input w-full text-sm"
+                                  placeholder="Add details about this payment"
+                                />
+                              </div>
+                              <div className="md:col-span-3 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={handleCustomerLedgerSettlement}
+                                  className="btn-primary text-sm"
+                                  disabled={settlementLoading}
+                                >
+                                  {settlementLoading ? 'Recording...' : `Mark Paid (${formatPrice(customerLedger.balance)})`}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-green-700 dark:text-green-300">
+                              No outstanding balance remaining.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

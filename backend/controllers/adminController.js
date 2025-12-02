@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
-const User = require('../models/User');
+const Order = require('../models/Order');
+const AccountLedger = require('../models/AccountLedger');
 const { validationResult } = require('express-validator');
 
 // @desc    Get all users (customers and employees)
@@ -149,6 +151,140 @@ exports.getUsersByRole = async (req, res) => {
     });
   } catch (error) {
     console.error('Get users by role error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+const buildOrderQuery = (userId, phone) => {
+  const clauses = [{ customerId: userId }];
+  if (phone) {
+    clauses.push({ customerPhone: phone });
+  }
+  return clauses.length > 1 ? { $or: clauses } : clauses[0];
+};
+
+const buildLedgerFilter = (user) => {
+  if (user.role === 'employee') {
+    return {
+      accountType: 'employee',
+      $or: [
+        { employeeId: user._id },
+        { employeePhone: user.phone }
+      ]
+    };
+  }
+
+  return {
+    accountType: 'customer',
+    $or: [
+      { customerId: user._id },
+      { customerPhone: user.phone }
+    ]
+  };
+};
+
+// @desc    Get orders and ledger summary for a user
+// @route   GET /api/admin/users/:id/orders
+// @access  Private/Admin
+exports.getUserOrders = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user id'
+      });
+    }
+
+    const user = await Customer.findById(id).select('-password');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const orders = await Order.find(buildOrderQuery(user._id, user.phone))
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const ledgers = await AccountLedger.find(buildLedgerFilter(user))
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const ledgerTotals = ledgers.reduce(
+      (acc, ledger) => {
+        const ordersAmount = Number(ledger.totalOrdersAmount) || 0;
+        const paymentsAmount = Number(ledger.totalPaymentsAmount) || 0;
+        const balanceAmount = Number(ledger.balance);
+
+        acc.totalOrdersAmount += ordersAmount;
+        acc.totalPaymentsAmount += paymentsAmount;
+
+        if (Number.isFinite(balanceAmount)) {
+          acc.outstandingBalance += balanceAmount;
+        } else {
+          acc.outstandingBalance += ordersAmount - paymentsAmount;
+        }
+
+        return acc;
+      },
+      { totalOrdersAmount: 0, totalPaymentsAmount: 0, outstandingBalance: 0 }
+    );
+
+    const orderAggregates = orders.reduce(
+      (acc, order) => {
+        const total = Number(order.total) || 0;
+
+        acc.orderTotals += total;
+
+        if (['paid'].includes(order.status)) {
+          acc.paidTotals += total;
+        }
+
+        return acc;
+      },
+      { orderTotals: 0, paidTotals: 0 }
+    );
+
+    const orderTotals = orderAggregates.orderTotals;
+    const paidTotals = orderAggregates.paidTotals;
+
+    const summary = {
+      orderCount: orders.length,
+      totalOrdersAmount: ledgerTotals.totalOrdersAmount || orderTotals,
+      totalPaymentsAmount: ledgerTotals.totalPaymentsAmount,
+      outstandingBalance: ledgerTotals.outstandingBalance
+    };
+
+    if (!summary.outstandingBalance && summary.outstandingBalance !== 0) {
+      summary.outstandingBalance = Math.max(
+        (ledgerTotals.totalOrdersAmount || orderTotals) - ledgerTotals.totalPaymentsAmount,
+        0
+      );
+    };
+
+    // When no ledger entries exist, ensure we still show the order totals
+    if (ledgers.length === 0) {
+      summary.totalPaymentsAmount = paidTotals;
+      summary.outstandingBalance = Math.max(orderTotals - paidTotals, 0);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        orders,
+        ledgers,
+        summary
+      }
+    });
+  } catch (error) {
+    console.error('Get user orders error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

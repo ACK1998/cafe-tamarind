@@ -20,6 +20,7 @@ router.use(admin);
 router.get('/users', adminController.getAllUsers);
 router.get('/users/unverified', adminController.getUnverifiedUsers);
 router.get('/users/role/:role', adminController.getUsersByRole);
+router.get('/users/:id/orders', adminController.getUserOrders);
 router.get('/users/:id', adminController.getUserById);
 router.put('/users/:id', validateUserUpdate, adminController.updateUser);
 router.delete('/users/:id', adminController.deleteUser);

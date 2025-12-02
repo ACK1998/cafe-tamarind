@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const MenuItem = require('../models/MenuItem');
 const { validationResult } = require('express-validator');
+const { applyOrderToLedger } = require('../services/ledgerService');
 
 // @desc    Place new order (no authentication required for customers)
 // @route   POST /api/orders
@@ -249,6 +250,8 @@ const placeOrder = async (req, res) => {
 
     const order = await Order.create([orderData], { session });
 
+    await applyOrderToLedger(order[0], session);
+
     // Commit transaction
     await session.commitTransaction();
 
@@ -468,7 +471,7 @@ const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
-    if (!['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'].includes(status)) {
+    if (!['pending', 'confirmed', 'preparing', 'ready', 'completed', 'paid', 'cancelled'].includes(status)) {
       return res.status(400).json({ 
         success: false, 
         message: 'Invalid status' 
@@ -484,11 +487,18 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
+    const previousStatus = order.status;
     order.status = status;
 
     // Set ready time when status changes to ready
     if (status === 'ready') {
       order.actualReadyTime = new Date();
+    }
+
+    if (status === 'paid') {
+      order.paidAt = new Date();
+    } else if (previousStatus === 'paid') {
+      order.paidAt = undefined;
     }
 
     await order.save();

@@ -47,10 +47,10 @@ const submitFeedback = async (req, res) => {
     }
 
     // Check if order is completed
-    if (order.status !== 'completed') {
+    if (!['completed', 'paid'].includes(order.status)) {
       return res.status(400).json({
         success: false,
-        message: 'Can only review completed orders'
+        message: 'Can only review completed or paid orders'
       });
     }
 
@@ -272,12 +272,12 @@ const canReviewOrder = async (req, res) => {
       });
     }
 
-    // Check if order is completed
-    if (order.status !== 'completed') {
+    // Check if order is completed/paid
+    if (!['completed', 'paid'].includes(order.status)) {
       return res.json({
         success: true,
         canReview: false,
-        reason: 'Order must be completed to leave a review'
+        reason: 'Order must be completed or paid to leave a review'
       });
     }
 

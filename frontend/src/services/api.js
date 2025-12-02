@@ -85,7 +85,7 @@ export const menuAPI = {
 // Orders API calls
 export const ordersAPI = {
   create: (orderData, headers = {}) => apiCallWithRetry(() => api.post('/orders', orderData, { headers })),
-  createAdmin: (orderData) => apiCallWithRetry(() => api.post('/orders/admin/place', orderData)),
+  createAdmin: (orderData) => apiCallWithRetry(() => api.post('/orders', orderData)),
   getById: (id) => apiCallWithRetry(() => api.get(`/orders/${id}`)),
   getCustomerOrders: (phone) => apiCallWithRetry(() => api.get(`/orders/customer/${phone}`)),
   getAll: (params) => {
@@ -115,6 +115,16 @@ export const userAPI = {
   getAllWithTotals: () => apiCallWithRetry(() => api.get('/admin/customers/with-totals')),
   update: (userId, updates) => apiCallWithRetry(() => api.put(`/admin/users/${userId}`, updates)),
   delete: (userId) => apiCallWithRetry(() => api.delete(`/admin/users/${userId}`)),
+  getOrders: (userId) => apiCallWithRetry(() => api.get(`/admin/users/${userId}/orders`)),
+};
+
+export const ledgerAPI = {
+  listCustomerLedgers: (params = {}) => apiCallWithRetry(() => api.get('/ledger/customers', { params })),
+  getCustomerLedgerByPhone: (phone, params = {}) => apiCallWithRetry(() => api.get(`/ledger/customers/phone/${phone}`, { params })),
+  settleCustomerLedger: (ledgerId, payload = {}) => apiCallWithRetry(() => api.post(`/ledger/customers/${ledgerId}/settle`, payload)),
+  listEmployeeLedgers: (params = {}) => apiCallWithRetry(() => api.get('/ledger/employees', { params })),
+  lookupEmployeeLedger: (params = {}) => apiCallWithRetry(() => api.get('/ledger/employees/lookup', { params })),
+  recordEmployeeSettlement: (ledgerId, payload) => apiCallWithRetry(() => api.post(`/ledger/employees/${ledgerId}/settlements`, payload)),
 };
 
 // Feedback API calls

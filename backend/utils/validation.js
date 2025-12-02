@@ -37,7 +37,7 @@ const isValidObjectId = (id) => {
 
 // Order status validation
 const isValidOrderStatus = (status) => {
-  const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'];
+  const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'paid', 'cancelled'];
   return validStatuses.includes(status);
 };
 

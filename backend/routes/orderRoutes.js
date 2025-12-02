@@ -59,7 +59,7 @@ const orderValidation = [
 
 const statusValidation = [
   body('status')
-    .isIn(['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'])
+    .isIn(['pending', 'confirmed', 'preparing', 'ready', 'completed', 'paid', 'cancelled'])
     .withMessage('Invalid status')
 ];
 

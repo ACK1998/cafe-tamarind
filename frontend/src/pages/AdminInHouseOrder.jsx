@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, ShoppingCart, User, Search, Filter, Home } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, ShoppingCart, User, Search, Home } from 'lucide-react';
 import { STORAGE_KEYS } from '../config/constants';
 import axios from 'axios';
 import { formatPrice } from '../utils/currencyFormatter';
 import useStore from '../store/useStore';
+import { ledgerAPI } from '../services/api';
 
 const AdminInHouseOrder = () => {
   const navigate = useNavigate();
@@ -28,11 +29,82 @@ const AdminInHouseOrder = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
   const [cartTotal, setCartTotal] = useState(0);
+  const [employeeLedger, setEmployeeLedger] = useState(null);
+  const [employeeLedgerLoading, setEmployeeLedgerLoading] = useState(false);
+  const [employeeLedgerError, setEmployeeLedgerError] = useState('');
+  const [employeeLedgerRequestKey, setEmployeeLedgerRequestKey] = useState(0);
+  const [settlementAmount, setSettlementAmount] = useState('');
+  const [employeeSettlementNote, setEmployeeSettlementNote] = useState('');
+  const [employeeSettlementMethod, setEmployeeSettlementMethod] = useState('cash');
+  const [employeeSettlementLoading, setEmployeeSettlementLoading] = useState(false);
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+  const lastEmployeeSettlement = employeeLedger?.settlements?.length
+    ? employeeLedger.settlements[employeeLedger.settlements.length - 1]
+    : null;
+  const getLedgerPeriodLabel = (ledger) => {
+    if (!ledger?.periodYear || !ledger?.periodMonth) return '';
+    const periodDate = new Date(ledger.periodYear, ledger.periodMonth - 1);
+    return periodDate.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  };
 
   useEffect(() => {
     fetchMenuItems();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    const phone = formData.customerPhone.trim();
+    if (!phone || phone.length < 4) {
+      setEmployeeLedger(null);
+      setEmployeeLedgerError('');
+      setSettlementAmount('');
+      return;
+    }
+
+    let isCancelled = false;
+    setEmployeeLedgerLoading(true);
+    setEmployeeLedgerError('');
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await ledgerAPI.lookupEmployeeLedger({
+          phone,
+          month: currentMonth,
+          year: currentYear
+        });
+
+        if (isCancelled) {
+          return;
+        }
+
+        const ledgers = response?.data?.data || [];
+        const currentLedger = ledgers.find(
+          (entry) => entry.periodMonth === currentMonth && entry.periodYear === currentYear
+        ) || ledgers[0] || null;
+
+        setEmployeeLedger(currentLedger || null);
+      } catch (err) {
+        if (isCancelled) {
+          return;
+        }
+
+        console.error('Error fetching employee ledger:', err);
+        setEmployeeLedger(null);
+        setEmployeeLedgerError(err.response?.data?.message || 'Unable to fetch employee credit balance');
+      } finally {
+        if (!isCancelled) {
+          setEmployeeLedgerLoading(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [formData.customerPhone, employeeLedgerRequestKey, currentMonth, currentYear]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
@@ -153,6 +225,50 @@ const AdminInHouseOrder = () => {
     setCartTotal(total);
   };
 
+  const refreshEmployeeLedger = () => {
+    setEmployeeLedgerRequestKey(prev => prev + 1);
+  };
+
+  const handleEmployeeSettlement = async () => {
+    if (!employeeLedger || employeeLedger.balance <= 0) {
+      return;
+    }
+
+    const parsedAmount = Number(settlementAmount);
+
+    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      setEmployeeLedgerError('Enter a valid settlement amount greater than zero.');
+      return;
+    }
+
+    if (parsedAmount > employeeLedger.balance) {
+      setEmployeeLedgerError('Settlement amount cannot exceed outstanding balance.');
+      return;
+    }
+
+    try {
+      setEmployeeSettlementLoading(true);
+      setEmployeeLedgerError('');
+
+      await ledgerAPI.recordEmployeeSettlement(employeeLedger._id, {
+        amount: parsedAmount,
+        note: employeeSettlementNote.trim() || undefined,
+        paymentMethod: employeeSettlementMethod || undefined
+      });
+
+      setEmployeeSettlementNote('');
+      setSettlementAmount('');
+      setEmployeeSettlementMethod('cash');
+      refreshEmployeeLedger();
+      setSuccess('Employee settlement recorded successfully.');
+    } catch (err) {
+      console.error('Employee ledger settlement error:', err);
+      setEmployeeLedgerError(err.response?.data?.message || 'Failed to record settlement');
+    } finally {
+      setEmployeeSettlementLoading(false);
+    }
+  };
+
   const clearCart = () => {
     setCart([]);
     setCartTotal(0);
@@ -204,6 +320,8 @@ const AdminInHouseOrder = () => {
       setTimeout(() => {
         navigate('/admin/dashboard');
       }, 2000);
+
+      refreshEmployeeLedger();
     } catch (err) {
       console.error('Order placement error:', err);
       setError(err.response?.data?.message || 'Failed to place order. Please try again.');
@@ -462,6 +580,149 @@ const AdminInHouseOrder = () => {
                       placeholder="Enter phone number"
                     />
                   </div>
+
+              {formData.customerPhone.trim() !== '' && (
+                <div className="mt-4">
+                  <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-900/20 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                          Employee Credit Balance
+                        </p>
+                        <p className="text-2xl font-semibold text-green-900 dark:text-green-100">
+                          {employeeLedger ? formatPrice(employeeLedger.balance || 0) : '—'}
+                        </p>
+                        {employeeLedger && (
+                          <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                            {getLedgerPeriodLabel(employeeLedger) || 'Current cycle'}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={refreshEmployeeLedger}
+                        className="btn-outline text-sm"
+                        disabled={employeeLedgerLoading}
+                      >
+                        Refresh
+                      </button>
+                    </div>
+
+                    {employeeLedgerLoading && (
+                      <div className="mt-4 flex items-center text-sm text-green-800 dark:text-green-200">
+                        <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-green-600 mr-2" />
+                        Loading ledger details...
+                      </div>
+                    )}
+
+                    {!employeeLedgerLoading && employeeLedgerError && (
+                      <p className="mt-3 text-sm text-red-700 dark:text-red-300">
+                        {employeeLedgerError}
+                      </p>
+                    )}
+
+                    {!employeeLedgerLoading && !employeeLedgerError && !employeeLedger && (
+                      <p className="mt-3 text-sm text-green-800 dark:text-green-200">
+                        No credit balance recorded for this employee yet.
+                      </p>
+                    )}
+
+                    {!employeeLedgerLoading && employeeLedger && (
+                      <div className="mt-4 space-y-3 text-sm text-green-900 dark:text-green-100">
+                        <div className="flex justify-between">
+                          <span>Total Orders</span>
+                          <span>{formatPrice(employeeLedger.totalOrdersAmount || 0)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total Payments</span>
+                          <span>{formatPrice(employeeLedger.totalPaymentsAmount || 0)}</span>
+                        </div>
+                        {lastEmployeeSettlement && (
+                          <div className="text-xs text-green-700 dark:text-green-300">
+                            Last settlement: {new Date(lastEmployeeSettlement.recordedAt).toLocaleString()} ({formatPrice(lastEmployeeSettlement.amount)} - {lastEmployeeSettlement.type})
+                          </div>
+                        )}
+
+                        {employeeLedger.settlements && employeeLedger.settlements.length > 0 && (
+                          <div className="max-h-28 overflow-y-auto border border-green-200 dark:border-green-700 rounded-md p-2 text-xs">
+                            {employeeLedger.settlements
+                              .slice()
+                              .reverse()
+                              .map((settlement, index) => (
+                                <div key={index} className="flex justify-between py-1">
+                                  <span>
+                                    {new Date(settlement.recordedAt).toLocaleDateString()} ({settlement.type})
+                                  </span>
+                                  <span>{formatPrice(settlement.amount)}</span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+
+                        {employeeLedger.balance > 0 ? (
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <div>
+                              <label className="block text-xs font-medium mb-1">
+                                Settlement Amount
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={settlementAmount}
+                                onChange={(e) => setSettlementAmount(e.target.value)}
+                                className="input text-sm"
+                                placeholder="Enter amount"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium mb-1">
+                                Payment Method
+                              </label>
+                              <select
+                                value={employeeSettlementMethod}
+                                onChange={(e) => setEmployeeSettlementMethod(e.target.value)}
+                                className="input text-sm"
+                              >
+                                <option value="cash">Cash</option>
+                                <option value="salary">Salary Adjustment</option>
+                                <option value="upi">UPI</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </div>
+                            <div className="md:col-span-3">
+                              <label className="block text-xs font-medium mb-1">
+                                Payment Note (optional)
+                              </label>
+                              <textarea
+                                value={employeeSettlementNote}
+                                onChange={(e) => setEmployeeSettlementNote(e.target.value)}
+                                rows={2}
+                                className="input w-full text-sm"
+                                placeholder="Add details about this settlement"
+                              />
+                            </div>
+                            <div className="md:col-span-3 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={handleEmployeeSettlement}
+                                className="btn-primary text-sm"
+                                disabled={employeeSettlementLoading}
+                              >
+                                {employeeSettlementLoading ? 'Recording...' : 'Record Settlement'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-green-700 dark:text-green-300">
+                            No outstanding balance remaining for this period.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
