@@ -21,13 +21,15 @@ const app = express();
 
 // Connect to MongoDB for production (Vercel serverless)
 // In serverless environments, we need to connect when the module loads
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
   const mongoose = require('mongoose');
   // Check if already connected
   if (mongoose.connection.readyState === 0) {
     // Connect immediately for serverless (connection is cached)
+    // Don't await here - let it connect in background, middleware will handle it
     connectDB().catch(err => {
-      console.error('❌ Initial DB connection failed:', err);
+      console.error('❌ Initial DB connection failed:', err.message);
+      console.error('MONGODB_URI exists:', !!process.env.MONGODB_URI);
     });
   }
 }
@@ -70,14 +72,54 @@ app.use(express.json({ limit: API_CONFIG.BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true }));
 
 // Middleware to ensure DB connection in production (for serverless cold starts)
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
   app.use(async (req, res, next) => {
     const mongoose = require('mongoose');
-    if (mongoose.connection.readyState === 0) {
+    const readyState = mongoose.connection.readyState;
+    
+    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    if (readyState === 0 || readyState === 3) {
       try {
+        console.log('🔄 Establishing DB connection...');
         await connectDB();
+        console.log('✅ DB connection established');
       } catch (error) {
-        console.error('❌ DB connection failed in middleware:', error);
+        console.error('❌ DB connection failed in middleware:', error.message);
+        console.error('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+        console.error('NODE_ENV:', process.env.NODE_ENV);
+        console.error('VERCEL:', !!process.env.VERCEL);
+        
+        // Don't block health check endpoint
+        if (req.path === '/api/health') {
+          return next();
+        }
+        
+        return res.status(503).json({ 
+          success: false, 
+          message: 'Database connection failed. Please try again.',
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
+    } else if (readyState === 2) {
+      // Connection in progress, wait for it
+      try {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Connection timeout'));
+          }, 10000);
+          
+          mongoose.connection.once('connected', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+          
+          mongoose.connection.once('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+      } catch (error) {
+        console.error('❌ DB connection wait failed:', error.message);
         return res.status(503).json({ 
           success: false, 
           message: 'Database connection failed. Please try again.' 

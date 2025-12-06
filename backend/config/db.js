@@ -8,6 +8,14 @@ if (!cached) {
 }
 
 const connectDB = async () => {
+  // Check if MONGODB_URI is set
+  const mongoUri = process.env.MONGODB_URI;
+  if (!mongoUri) {
+    const error = new Error('MONGODB_URI environment variable is not set');
+    console.error('❌', error.message);
+    throw error;
+  }
+
   // If already connected, return cached connection
   if (mongoose.connection.readyState === 1) {
     return mongoose.connection;
@@ -19,13 +27,19 @@ const connectDB = async () => {
   }
 
   const options = {
-    serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+    serverSelectionTimeoutMS: process.env.VERCEL ? 10000 : 5000, // Longer timeout for Vercel
     socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
     bufferCommands: false, // Disable mongoose buffering for serverless
+    maxPoolSize: 10, // Maintain up to 10 socket connections
+    minPoolSize: 1, // Maintain at least 1 socket connection
+    maxIdleTimeMS: 30000, // Close connections after 30s of inactivity
   };
 
+  console.log('🔌 Attempting to connect to MongoDB...');
+  console.log('📍 URI:', mongoUri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')); // Hide credentials
+
   cached.promise = mongoose.connect(
-    process.env.MONGODB_URI || 'mongodb://localhost:27017/cafe-tamarind',
+    mongoUri,
     options
   ).then((conn) => {
     console.log(`🗄️ MongoDB Connected: ${conn.connection.host}`);
