@@ -19,6 +19,19 @@ const ledgerRoutes = require('./routes/ledgerRoutes');
 
 const app = express();
 
+// Connect to MongoDB for production (Vercel serverless)
+// In serverless environments, we need to connect when the module loads
+if (process.env.NODE_ENV === 'production') {
+  const mongoose = require('mongoose');
+  // Check if already connected
+  if (mongoose.connection.readyState === 0) {
+    // Connect immediately for serverless (connection is cached)
+    connectDB().catch(err => {
+      console.error('❌ Initial DB connection failed:', err);
+    });
+  }
+}
+
 // Trust proxy for rate limiting
 app.set('trust proxy', 1);
 
@@ -55,6 +68,25 @@ app.use(cors({
 // Body parsing middleware
 app.use(express.json({ limit: API_CONFIG.BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true }));
+
+// Middleware to ensure DB connection in production (for serverless cold starts)
+if (process.env.NODE_ENV === 'production') {
+  app.use(async (req, res, next) => {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState === 0) {
+      try {
+        await connectDB();
+      } catch (error) {
+        console.error('❌ DB connection failed in middleware:', error);
+        return res.status(503).json({ 
+          success: false, 
+          message: 'Database connection failed. Please try again.' 
+        });
+      }
+    }
+    next();
+  });
+}
 
 // API Routes
 app.use('/api/auth', authRoutes);
