@@ -19,9 +19,6 @@ const ledgerRoutes = require('./routes/ledgerRoutes');
 
 const app = express();
 
-// Connect to MongoDB
-connectDB();
-
 // Trust proxy for rate limiting
 app.set('trust proxy', 1);
 
@@ -70,7 +67,23 @@ app.use('/api/ledger', ledgerRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Cafe Tamarind API is running' });
+  const mongoose = require('mongoose');
+  const dbStatus = mongoose.connection.readyState;
+  const dbStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
+  res.json({ 
+    status: 'OK', 
+    message: 'Cafe Tamarind API is running',
+    database: {
+      status: dbStates[dbStatus] || 'unknown',
+      readyState: dbStatus
+    }
+  });
 });
 
 // Error handling middleware
@@ -83,12 +96,28 @@ app.use('*', (req, res) => {
 
 const PORT = API_CONFIG.PORT;
 
-// For local development
+// Start server function
+const startServer = async () => {
+  try {
+    // Connect to MongoDB first
+    await connectDB();
+    
+    // For local development
+    if (process.env.NODE_ENV !== 'production') {
+      app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`📱 API available at http://localhost:${PORT}/api`);
+      });
+    }
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📱 API available at http://localhost:${PORT}/api`);
-  });
+  startServer();
 }
 
 // Export for Vercel
