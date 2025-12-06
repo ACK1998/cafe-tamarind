@@ -71,6 +71,17 @@ app.use(cors({
 app.use(express.json({ limit: API_CONFIG.BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true }));
 
+// Request logging for debugging (production only)
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+  app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.path}`, {
+      query: req.query,
+      body: req.method !== 'GET' ? 'present' : 'none'
+    });
+    next();
+  });
+}
+
 // Middleware to ensure DB connection in production (for serverless cold starts)
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
   app.use(async (req, res, next) => {
@@ -139,6 +150,22 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ledger', ledgerRoutes);
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Cafe Tamarind API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      menu: '/api/menu',
+      orders: '/api/orders',
+      customers: '/api/customers',
+      admin: '/api/admin'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   const mongoose = require('mongoose');
@@ -156,16 +183,24 @@ app.get('/api/health', (req, res) => {
     database: {
       status: dbStates[dbStatus] || 'unknown',
       readyState: dbStatus
-    }
+    },
+    environment: process.env.NODE_ENV || 'development',
+    vercel: !!process.env.VERCEL
   });
 });
 
 // Error handling middleware
 app.use(errorHandler);
 
-// 404 handler
+// 404 handler - only for unmatched routes
 app.use('*', (req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  console.log('404 - Route not found:', req.method, req.path);
+  res.status(404).json({ 
+    success: false,
+    message: 'Route not found',
+    path: req.path,
+    method: req.method
+  });
 });
 
 const PORT = API_CONFIG.PORT;
