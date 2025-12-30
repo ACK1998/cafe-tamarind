@@ -6,6 +6,7 @@ import axios from 'axios';
 import { formatPrice } from '../utils/currencyFormatter';
 import useStore from '../store/useStore';
 import { ledgerAPI } from '../services/api';
+import { printKot } from '../utils/printUtils';
 
 const AdminCustomerOrder = () => {
   const navigate = useNavigate();
@@ -224,20 +225,15 @@ const AdminCustomerOrder = () => {
     setSuccess('');
 
     try {
-      // Validate form data
-      if (!formData.customerName.trim() || !formData.customerPhone.trim()) {
-        setError('Please fill in customer name and phone number.');
-        return;
-      }
-
+      // Validate form data - customer name and phone are optional
       if (cart.length === 0) {
         setError('Please add at least one item to the order.');
         return;
       }
 
       const orderData = {
-        customerName: formData.customerName.trim(),
-        customerPhone: formData.customerPhone.trim(),
+        customerName: formData.customerName.trim() || undefined,
+        customerPhone: formData.customerPhone.trim() || undefined,
         items: cart.map(item => ({
           menuItemId: item._id,
           qty: item.quantity
@@ -249,8 +245,9 @@ const AdminCustomerOrder = () => {
       };
 
       const response = await axios.post('/api/orders', orderData);
+      const createdOrder = response?.data?.data;
       
-      setSuccess(`Customer order placed successfully! Order #${response.data.data.orderNumber}`);
+      setSuccess(`Customer order placed successfully! Order #${createdOrder.orderNumber}`);
       clearCart();
       setFormData({
         customerName: '',
@@ -258,6 +255,11 @@ const AdminCustomerOrder = () => {
         mealTime: 'lunch',
         specialInstructions: ''
       });
+
+      // Print KOT automatically
+      if (createdOrder) {
+        printKot(createdOrder);
+      }
 
       refreshCustomerLedger();
       
@@ -479,14 +481,13 @@ const AdminCustomerOrder = () => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Customer Name *
+                      Customer Name
                     </label>
                     <input
                       type="text"
                       name="customerName"
                       value={formData.customerName}
                       onChange={handleInputChange}
-                      required
                       className="input w-full"
                       placeholder="Enter customer name"
                     />
@@ -494,14 +495,13 @@ const AdminCustomerOrder = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Phone Number *
+                      Phone Number
                     </label>
                     <input
                       type="tel"
                       name="customerPhone"
                       value={formData.customerPhone}
                       onChange={handleInputChange}
-                      required
                       className="input w-full"
                       placeholder="Enter phone number"
                     />
@@ -719,7 +719,7 @@ const AdminCustomerOrder = () => {
                           disabled={loading || cart.length === 0}
                           className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {loading ? 'Placing Order...' : 'Place Customer Order'}
+                          {loading ? 'Placing Order...' : 'Print KOT'}
                         </button>
                       </div>
                     </div>

@@ -5,9 +5,10 @@ import { STORAGE_KEYS } from '../config/constants';
 import axios from 'axios';
 import { formatPrice } from '../utils/currencyFormatter';
 import useStore from '../store/useStore';
-import { ledgerAPI } from '../services/api';
+import { ledgerAPI, userAPI } from '../services/api';
 
 const AdminInHouseOrder = () => {
+  console.log('=== AdminInHouseOrder Component Rendered ===');
   const navigate = useNavigate();
   const { user, logout } = useStore();
   const [loading, setLoading] = useState(false);
@@ -37,6 +38,18 @@ const AdminInHouseOrder = () => {
   const [employeeSettlementNote, setEmployeeSettlementNote] = useState('');
   const [employeeSettlementMethod, setEmployeeSettlementMethod] = useState('cash');
   const [employeeSettlementLoading, setEmployeeSettlementLoading] = useState(false);
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
+  
+  // Debug: Log employees state changes
+  useEffect(() => {
+    console.log('Employees state updated:', employees);
+    console.log('Employees count:', employees.length);
+  }, [employees]);
+  
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
@@ -50,9 +63,140 @@ const AdminInHouseOrder = () => {
   };
 
   useEffect(() => {
+    console.log('AdminInHouseOrder component mounted');
+    console.log('Fetching employees on mount...');
     fetchMenuItems();
     fetchCategories();
+    fetchEmployees();
   }, []);
+
+  // Filter employees based on name input
+  useEffect(() => {
+    if (formData.customerName && showEmployeeDropdown) {
+      const searchTerm = formData.customerName.toLowerCase();
+      const filtered = employees.filter(emp => 
+        emp.name.toLowerCase().includes(searchTerm) ||
+        emp.phone.includes(searchTerm)
+      );
+      setFilteredEmployees(filtered);
+    } else {
+      setFilteredEmployees(employees);
+    }
+  }, [formData.customerName, employees, showEmployeeDropdown]);
+
+  const fetchEmployees = async () => {
+    console.log('=== fetchEmployees called ===');
+    try {
+      setEmployeesLoading(true);
+      console.log('Calling userAPI.getByRole("employee")...');
+      const response = await userAPI.getByRole('employee');
+      console.log('=== API Response Received ===');
+      console.log('Full API response:', response);
+      console.log('Response data:', response.data);
+      
+      // Handle different possible response structures
+      let employeesList = [];
+      if (response?.data?.data) {
+        employeesList = Array.isArray(response.data.data) ? response.data.data : [];
+      } else if (response?.data && Array.isArray(response.data)) {
+        employeesList = response.data;
+      } else if (Array.isArray(response)) {
+        employeesList = response;
+      }
+      
+      console.log('Processed employees list:', employeesList);
+      console.log('Number of employees:', employeesList.length);
+      
+      // Ensure employees have required fields
+      const validEmployees = employeesList.filter(emp => emp && (emp._id || emp.id) && emp.name);
+      console.log('Valid employees:', validEmployees);
+      
+      setEmployees(validEmployees);
+      setFilteredEmployees(validEmployees);
+      console.log('=== Employees successfully set in state ===');
+      console.log('Final employees array:', validEmployees);
+    } catch (err) {
+      console.error('=== ERROR fetching employees ===');
+      console.error('Error object:', err);
+      console.error('Error message:', err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response status:', err.response?.status);
+      console.error('Full error details:', JSON.stringify(err, null, 2));
+      setError('Failed to load employees. Please try again.');
+      setEmployees([]);
+      setFilteredEmployees([]);
+    } finally {
+      setEmployeesLoading(false);
+      console.log('=== fetchEmployees completed ===');
+    }
+  };
+
+  const handleEmployeeSelect = (employee) => {
+    const employeeId = employee._id || employee.id;
+    setSelectedEmployeeId(employeeId);
+    setFormData(prev => ({
+      ...prev,
+      customerName: employee.name || '',
+      customerPhone: employee.phone || ''
+    }));
+    setShowEmployeeDropdown(false);
+    console.log('Employee selected:', employee);
+    console.log('Form data updated:', {
+      customerName: employee.name,
+      customerPhone: employee.phone
+    });
+  };
+
+  const handleNameInputFocus = () => {
+    console.log('Name input focused, employees:', employees.length);
+    // Filter based on current input value
+    if (formData.customerName && employees.length > 0) {
+      const searchTerm = formData.customerName.toLowerCase();
+      const filtered = employees.filter(emp => 
+        emp.name.toLowerCase().includes(searchTerm) ||
+        emp.phone.includes(searchTerm)
+      );
+      console.log('Filtered employees:', filtered.length);
+      setFilteredEmployees(filtered);
+    } else {
+      setFilteredEmployees(employees);
+    }
+    setShowEmployeeDropdown(true);
+    console.log('Dropdown should show:', true);
+  };
+
+  const handleNameInputChange = (e) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      customerName: value
+    }));
+    setSelectedEmployeeId('');
+    setShowEmployeeDropdown(true);
+  };
+
+  const handleEmployeeDropdownChange = (e) => {
+    const selectedId = e.target.value;
+    if (selectedId === '') {
+      // Clear selection
+      setSelectedEmployeeId('');
+      setFormData(prev => ({
+        ...prev,
+        customerName: '',
+        customerPhone: ''
+      }));
+    } else {
+      // Find the selected employee (handle both _id and id)
+      const selectedEmployee = employees.find(emp => (emp._id || emp.id) === selectedId);
+      if (selectedEmployee) {
+        handleEmployeeSelect(selectedEmployee);
+      } else {
+        console.error('Employee not found with ID:', selectedId);
+        console.log('Available employees:', employees);
+      }
+    }
+  };
 
   useEffect(() => {
     const phone = formData.customerPhone.trim();
@@ -159,10 +303,23 @@ const AdminInHouseOrder = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'customerName') {
+      // Clear selected employee if user manually edits name
+      setSelectedEmployeeId('');
+      setFormData(prev => ({
+        ...prev,
+        customerName: value
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      // Clear selected employee if user manually edits phone
+      if (name === 'customerPhone') {
+        setSelectedEmployeeId('');
+      }
+    }
   };
 
   const handleSearchChange = (e) => {
@@ -281,20 +438,15 @@ const AdminInHouseOrder = () => {
     setSuccess('');
 
     try {
-      // Validate form data
-      if (!formData.customerName.trim() || !formData.customerPhone.trim()) {
-        setError('Please fill in customer name and phone number.');
-        return;
-      }
-
+      // Validate form data - customer name and phone are optional
       if (cart.length === 0) {
         setError('Please add at least one item to the order.');
         return;
       }
 
       const orderData = {
-        customerName: formData.customerName.trim(),
-        customerPhone: formData.customerPhone.trim(),
+        customerName: formData.customerName.trim() || undefined,
+        customerPhone: formData.customerPhone.trim() || undefined,
         items: cart.map(item => ({
           menuItemId: item._id,
           qty: item.quantity
@@ -315,6 +467,8 @@ const AdminInHouseOrder = () => {
         mealTime: 'lunch',
         specialInstructions: ''
       });
+      setSelectedEmployeeId('');
+      setShowEmployeeDropdown(false);
       
       // Redirect to admin dashboard after 2 seconds
       setTimeout(() => {
@@ -552,32 +706,102 @@ const AdminInHouseOrder = () => {
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      User Name *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        User Name
+                        {employees.length > 0 && (
+                          <span className="ml-2 text-xs text-gray-500">({employees.length} employees available)</span>
+                        )}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={fetchEmployees}
+                        disabled={employeesLoading}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                      >
+                        {employeesLoading ? 'Loading...' : 'Refresh'}
+                      </button>
+                    </div>
+                    <select
+                      name="employeeSelect"
+                      value={selectedEmployeeId}
+                      onChange={handleEmployeeDropdownChange}
+                      onFocus={() => {
+                        console.log('=== Employee dropdown focused ===');
+                        console.log('Current employees state:', employees);
+                        console.log('Employees length:', employees.length);
+                        console.log('Selected employee ID:', selectedEmployeeId);
+                        if (employees.length === 0) {
+                          console.log('No employees in state, attempting to fetch...');
+                          fetchEmployees();
+                        }
+                      }}
+                      onClick={() => {
+                        console.log('=== Employee dropdown clicked ===');
+                        console.log('Current employees:', employees);
+                      }}
+                      className="input w-full"
+                      disabled={employeesLoading}
+                    >
+                      <option value="">
+                        {employeesLoading 
+                          ? 'Loading employees...' 
+                          : employees.length === 0 
+                            ? 'No employees available' 
+                            : 'Select an employee or enter manually'}
+                      </option>
+                      {employees.map((employee) => {
+                        const employeeId = employee._id || employee.id;
+                        const employeeName = employee.name || 'Unknown';
+                        const employeePhone = employee.phone || 'No phone';
+                        return (
+                          <option key={employeeId} value={employeeId}>
+                            {employeeName} ({employeePhone})
+                          </option>
+                        );
+                      })}
+                    </select>
+                    {employeesLoading && (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Loading employees...
+                      </p>
+                    )}
+                    {!employeesLoading && employees.length === 0 && (
+                      <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
+                        No employees available. Employees will appear here once they are registered. Click "Refresh" to reload.
+                      </p>
+                    )}
+                    {/* Allow manual entry as well */}
                     <input
                       type="text"
                       name="customerName"
                       value={formData.customerName}
                       onChange={handleInputChange}
-                      required
-                      className="input w-full"
-                      placeholder="Enter user name"
+                      onFocus={() => {
+                        console.log('=== Manual name input focused ===');
+                        console.log('Current employees:', employees);
+                        console.log('Form data:', formData);
+                      }}
+                      className="input w-full mt-2"
+                      placeholder="Or enter name manually"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Phone Number *
+                      Phone Number
+                      {selectedEmployeeId && (
+                        <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Auto-filled from employee info)</span>
+                      )}
                     </label>
                     <input
                       type="tel"
                       name="customerPhone"
                       value={formData.customerPhone}
                       onChange={handleInputChange}
-                      required
-                      className="input w-full"
+                      className={`input w-full ${selectedEmployeeId ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''}`}
                       placeholder="Enter phone number"
+                      readOnly={!!selectedEmployeeId}
                     />
                   </div>
 
@@ -823,7 +1047,7 @@ const AdminInHouseOrder = () => {
                           disabled={loading || cart.length === 0}
                           className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {loading ? 'Placing Order...' : 'Place In-House Order'}
+                          {loading ? 'Placing Order...' : 'Print KOT'}
                         </button>
                       </div>
                     </div>

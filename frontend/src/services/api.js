@@ -113,6 +113,7 @@ export const customerAPI = {
 export const userAPI = {
   getAll: () => apiCallWithRetry(() => api.get('/admin/users')),
   getAllWithTotals: () => apiCallWithRetry(() => api.get('/admin/customers/with-totals')),
+  getByRole: (role) => apiCallWithRetry(() => api.get(`/admin/users/role/${role}`)),
   update: (userId, updates) => apiCallWithRetry(() => api.put(`/admin/users/${userId}`, updates)),
   delete: (userId) => apiCallWithRetry(() => api.delete(`/admin/users/${userId}`)),
   getOrders: (userId) => apiCallWithRetry(() => api.get(`/admin/users/${userId}/orders`)),

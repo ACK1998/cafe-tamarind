@@ -147,20 +147,15 @@ const AdminPlaceOrder = () => {
     setSuccess('');
 
     try {
-      // Validate form data
-      if (!formData.customerName.trim() || !formData.customerPhone.trim()) {
-        setError('Please fill in customer name and phone number.');
-        return;
-      }
-
+      // Validate form data - customer name and phone are optional
       if (cart.length === 0) {
         setError('Please add at least one item to the order.');
         return;
       }
 
       const orderData = {
-        customerName: formData.customerName.trim(),
-        customerPhone: formData.customerPhone.trim(),
+        customerName: formData.customerName.trim() || undefined,
+        customerPhone: formData.customerPhone.trim() || undefined,
         items: cart.map(item => ({
           menuItemId: item._id,
           qty: item.quantity
@@ -272,7 +267,7 @@ const AdminPlaceOrder = () => {
                   {/* Customer Name */}
                   <div>
                     <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Customer Name *
+                      Customer Name
                     </label>
                     <input
                       type="text"
@@ -280,7 +275,6 @@ const AdminPlaceOrder = () => {
                       name="customerName"
                       value={formData.customerName}
                       onChange={handleInputChange}
-                      required
                       className="input w-full"
                       placeholder="Enter customer name"
                     />
@@ -289,7 +283,7 @@ const AdminPlaceOrder = () => {
                   {/* Customer Phone */}
                   <div>
                     <label htmlFor="customerPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Phone Number *
+                      Phone Number
                     </label>
                     <input
                       type="tel"
@@ -297,7 +291,6 @@ const AdminPlaceOrder = () => {
                       name="customerPhone"
                       value={formData.customerPhone}
                       onChange={handleInputChange}
-                      required
                       className="input w-full"
                       placeholder="Enter phone number"
                     />
@@ -356,7 +349,7 @@ const AdminPlaceOrder = () => {
                     disabled={loading || cart.length === 0}
                     className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Placing Order...' : `Place Order - ${formatPrice(cartTotal)}`}
+                    {loading ? 'Placing Order...' : `Print KOT - ${formatPrice(cartTotal)}`}
                   </button>
                 </form>
               </div>

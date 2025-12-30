@@ -17,10 +17,12 @@ const router = express.Router();
 // Validation middleware
 const orderValidation = [
   body('customerName')
+    .optional()
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Customer name must be between 2 and 50 characters'),
   body('customerPhone')
+    .optional()
     .matches(/^[\+]?[1-9][\d]{0,15}$/)
     .withMessage('Please enter a valid phone number'),
   body('items')

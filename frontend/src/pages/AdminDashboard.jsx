@@ -291,29 +291,16 @@ const AdminDashboard = () => {
                             </button>
                             <button
                               onClick={() => printBill(order)}
-                              className="btn-outline text-xs sm:text-sm px-3 py-2 whitespace-nowrap flex-1 min-w-[110px] disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={!['ready', 'completed', 'paid'].includes(order.status)}
+                              className="btn-outline text-xs sm:text-sm px-3 py-2 whitespace-nowrap flex-1 min-w-[110px]"
                             >
                               Print Bill
                             </button>
                             <button
-                              onClick={() => {
-                                const statusFlow = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'paid'];
-                                const currentIndex = statusFlow.indexOf(order.status);
-                                if (currentIndex !== -1 && currentIndex < statusFlow.length - 1) {
-                                  updateOrderStatus(order._id, statusFlow[currentIndex + 1]);
-                                }
-                              }}
+                              onClick={() => updateOrderStatus(order._id, 'paid')}
                               className="btn-primary text-xs sm:text-sm px-3 py-2 whitespace-nowrap flex-1 min-w-[110px] disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={['paid', 'cancelled'].includes(order.status)}
+                              disabled={order.status === 'paid' || order.status === 'cancelled'}
                             >
-                              {order.status === 'pending' && 'Confirm'}
-                              {order.status === 'confirmed' && 'Start Prep'}
-                              {order.status === 'preparing' && 'Mark Ready'}
-                              {order.status === 'ready' && 'Complete'}
-                              {order.status === 'completed' && 'Mark Paid'}
-                              {order.status === 'paid' && 'Paid'}
-                              {order.status === 'cancelled' && 'Cancelled'}
+                              Paid
                             </button>
                           </div>
                         </div>

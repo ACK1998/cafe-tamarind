@@ -5,7 +5,7 @@ import useStore from '../store/useStore';
 import { STORAGE_KEYS } from '../config/constants';
 import AdminHeader from '../components/AdminHeader';
 import { formatPrice } from '../utils/currencyFormatter';
-import { ordersAPI, menuAPI } from '../services/api';
+import { ordersAPI, menuAPI, userAPI } from '../services/api';
 import { printKot, printBill } from '../utils/printUtils';
 
 // Top-right Notification Component
@@ -102,6 +102,12 @@ const AdminOrders = () => {
     specialInstructions: ''
   });
   const [notification, setNotification] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+  const [billsPrinted, setBillsPrinted] = useState(new Set()); // Track which orders have had bills printed
+  
+  // Employee dropdown state (for in-house orders)
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
 
   // Detect order type from URL
   useEffect(() => {
@@ -129,11 +135,72 @@ const AdminOrders = () => {
       } else {
         fetchMenuItems();
         fetchCategories();
+        // Fetch employees when in place mode and order type is inhouse
+        if (orderType === 'inhouse') {
+          fetchEmployees();
+        }
       }
     }, 100);
     
     return () => clearTimeout(timer);
   }, [orderType, viewMode]);
+  
+  // Fetch employees for in-house orders
+  const fetchEmployees = async () => {
+    try {
+      setEmployeesLoading(true);
+      console.log('Fetching employees for in-house orders...');
+      const response = await userAPI.getByRole('employee');
+      console.log('Employees API response:', response);
+      
+      // Handle different possible response structures
+      let employeesList = [];
+      if (response?.data?.data) {
+        employeesList = Array.isArray(response.data.data) ? response.data.data : [];
+      } else if (response?.data && Array.isArray(response.data)) {
+        employeesList = response.data;
+      } else if (Array.isArray(response)) {
+        employeesList = response;
+      }
+      
+      // Ensure employees have required fields
+      const validEmployees = employeesList.filter(emp => emp && (emp._id || emp.id) && emp.name);
+      console.log('Valid employees found:', validEmployees.length);
+      
+      setEmployees(validEmployees);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+      console.error('Error details:', err.response?.data || err.message);
+      setEmployees([]);
+    } finally {
+      setEmployeesLoading(false);
+    }
+  };
+  
+  // Handle employee selection from dropdown
+  const handleEmployeeSelect = (employeeId) => {
+    if (employeeId === '') {
+      // Clear selection
+      setSelectedEmployeeId('');
+      setCustomerInfo(prev => ({
+        ...prev,
+        name: '',
+        phone: ''
+      }));
+    } else {
+      // Find the selected employee
+      const selectedEmployee = employees.find(emp => (emp._id || emp.id) === employeeId);
+      if (selectedEmployee) {
+        setSelectedEmployeeId(employeeId);
+        setCustomerInfo(prev => ({
+          ...prev,
+          name: selectedEmployee.name || '',
+          phone: selectedEmployee.phone || ''
+        }));
+        console.log('Employee selected:', selectedEmployee);
+      }
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -170,10 +237,6 @@ const AdminOrders = () => {
 
       if (newStatus === 'confirmed' && updatedOrder) {
         printKot(updatedOrder);
-      }
-
-      if (newStatus === 'completed' && updatedOrder) {
-        printBill(updatedOrder);
       }
       
       // Refresh orders
@@ -254,11 +317,6 @@ const AdminOrders = () => {
   };
 
   const handlePlaceOrder = async () => {
-    if (!customerInfo.name || !customerInfo.phone) {
-      showNotification('Error', 'Please fill in customer name and phone number', 'error');
-      return;
-    }
-
     if (cart.length === 0) {
       showNotification('Error', 'Please add items to cart', 'error');
       return;
@@ -266,8 +324,8 @@ const AdminOrders = () => {
 
     try {
       const orderData = {
-        customerName: customerInfo.name.trim(),
-        customerPhone: customerInfo.phone.trim(),
+        customerName: customerInfo.name?.trim() || undefined,
+        customerPhone: customerInfo.phone?.trim() || undefined,
         mealTime: customerInfo.mealTime,
         specialInstructions: customerInfo.specialInstructions.trim(),
         items: cart.map(item => ({
@@ -610,32 +668,60 @@ const AdminOrders = () => {
                             >
                               Print KOT
                             </button>
-                            <button
-                              onClick={() => printBill(order)}
-                              className="btn-outline px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={!['ready', 'completed', 'paid'].includes(order.status)}
-                            >
-                              Print Bill
-                            </button>
-                            <button
-                              onClick={() => {
-                                const statusFlow = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'paid'];
-                                const currentIndex = statusFlow.indexOf(order.status);
-                                if (currentIndex !== -1 && currentIndex < statusFlow.length - 1) {
-                                  updateOrderStatus(order._id, statusFlow[currentIndex + 1]);
-                                }
-                              }}
-                              className="btn-primary px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={['paid', 'cancelled'].includes(order.status)}
-                            >
-                              {order.status === 'pending' && 'Confirm'}
-                              {order.status === 'confirmed' && 'Start Prep'}
-                              {order.status === 'preparing' && 'Mark Ready'}
-                              {order.status === 'ready' && 'Complete'}
-                              {order.status === 'completed' && 'Mark Paid'}
-                              {order.status === 'paid' && 'Paid'}
-                              {order.status === 'cancelled' && 'Cancelled'}
-                            </button>
+                            {order.status !== 'pending' && (
+                              <button
+                                onClick={() => {
+                                  printBill(order);
+                                  // Mark bill as printed
+                                  setBillsPrinted(prev => new Set(prev).add(order._id));
+                                }}
+                                className="btn-outline px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!['ready', 'completed', 'paid'].includes(order.status) || billsPrinted.has(order._id)}
+                              >
+                                {billsPrinted.has(order._id) ? 'Bill Printed' : 'Print Bill'}
+                              </button>
+                            )}
+                            {billsPrinted.has(order._id) || order.status === 'paid' ? (
+                              <button
+                                onClick={() => {
+                                  updateOrderStatus(order._id, 'paid');
+                                }}
+                                className="btn-primary px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={order.status === 'paid'}
+                              >
+                                {order.status === 'paid' ? 'Paid' : 'Mark Paid'}
+                              </button>
+                            ) : (
+                              order.status === 'pending' ? (
+                                <button
+                                  onClick={() => {
+                                    printBill(order);
+                                    setBillsPrinted(prev => new Set(prev).add(order._id));
+                                  }}
+                                  className="btn-outline px-3 py-1 text-xs"
+                                >
+                                  Print Bill
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    const statusFlow = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'paid'];
+                                    const currentIndex = statusFlow.indexOf(order.status);
+                                    if (currentIndex !== -1 && currentIndex < statusFlow.length - 1) {
+                                      updateOrderStatus(order._id, statusFlow[currentIndex + 1]);
+                                    }
+                                  }}
+                                  className="btn-outline px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                  disabled={['paid', 'cancelled'].includes(order.status)}
+                                >
+                                  {order.status === 'confirmed' && 'Start Prep'}
+                                  {order.status === 'preparing' && 'Mark Ready'}
+                                  {order.status === 'ready' && 'Complete'}
+                                  {order.status === 'completed' && 'Complete'}
+                                  {order.status === 'cancelled' && 'Cancelled'}
+                                </button>
+                              )
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -775,29 +861,102 @@ const AdminOrders = () => {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {orderType === 'customer' ? 'Customer Name' : 'User Name'} *
-                      </label>
-                      <input
-                        type="text"
-                        value={customerInfo.name}
-                        onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
-                        placeholder={`Enter ${orderType === 'customer' ? 'customer' : 'user'} name`}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                        required
-                      />
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {orderType === 'customer' ? 'Customer Name' : 'User Name'} *
+                          {orderType === 'inhouse' && employees.length > 0 && (
+                            <span className="ml-2 text-xs text-gray-500">({employees.length} employees available)</span>
+                          )}
+                        </label>
+                        {orderType === 'inhouse' && (
+                          <button
+                            type="button"
+                            onClick={fetchEmployees}
+                            disabled={employeesLoading}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                          >
+                            {employeesLoading ? 'Loading...' : 'Refresh'}
+                          </button>
+                        )}
+                      </div>
+                      {orderType === 'inhouse' ? (
+                        <>
+                          <select
+                            value={selectedEmployeeId}
+                            onChange={(e) => handleEmployeeSelect(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                            disabled={employeesLoading}
+                          >
+                            <option value="">
+                              {employeesLoading 
+                                ? 'Loading employees...' 
+                                : employees.length === 0 
+                                  ? 'No employees available' 
+                                  : 'Select an employee or enter manually'}
+                            </option>
+                            {employees.map((employee) => {
+                              const employeeId = employee._id || employee.id;
+                              const employeeName = employee.name || 'Unknown';
+                              const employeePhone = employee.phone || 'No phone';
+                              return (
+                                <option key={employeeId} value={employeeId}>
+                                  {employeeName} ({employeePhone})
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {employeesLoading && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              Loading employees...
+                            </p>
+                          )}
+                          {!employeesLoading && employees.length === 0 && (
+                            <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
+                              No employees available. Click "Refresh" to reload.
+                            </p>
+                          )}
+                          <input
+                            type="text"
+                            value={customerInfo.name}
+                            onChange={(e) => {
+                              setSelectedEmployeeId('');
+                              setCustomerInfo({...customerInfo, name: e.target.value});
+                            }}
+                            placeholder="Or enter name manually"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white mt-2"
+                          />
+                        </>
+                      ) : (
+                        <input
+                          type="text"
+                          value={customerInfo.name}
+                          onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
+                          placeholder="Enter customer name"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                          required
+                        />
+                      )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Phone Number *
+                        Phone Number
+                        {orderType === 'inhouse' && selectedEmployeeId && (
+                          <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Auto-filled from employee info)</span>
+                        )}
                       </label>
                       <input
                         type="tel"
                         value={customerInfo.phone}
-                        onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
+                        onChange={(e) => {
+                          setSelectedEmployeeId('');
+                          setCustomerInfo({...customerInfo, phone: e.target.value});
+                        }}
                         placeholder="Enter phone number"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white ${
+                          orderType === 'inhouse' && selectedEmployeeId ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''
+                        }`}
+                        readOnly={orderType === 'inhouse' && !!selectedEmployeeId}
                         required
                       />
                     </div>
@@ -886,7 +1045,7 @@ const AdminOrders = () => {
                           onClick={handlePlaceOrder}
                           className="w-full btn-primary py-3"
                         >
-                          Place Order
+                          Print KOT
                         </button>
                       </div>
                     </div>

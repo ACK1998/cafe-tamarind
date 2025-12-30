@@ -10,6 +10,7 @@
     "build": "cd frontend && npm run build",
     "start": "cd backend && npm start",
     "seed": "cd backend && npm run seed",
+    "backfill-customers": "cd backend && npm run backfill-customers",
     "test": "node test-app.js",
     "test:backend": "cd backend && npm test",
     "test:frontend": "cd frontend && npm test",

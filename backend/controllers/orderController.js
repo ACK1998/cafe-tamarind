@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const MenuItem = require('../models/MenuItem');
+const Customer = require('../models/Customer');
 const { validationResult } = require('express-validator');
 const { applyOrderToLedger } = require('../services/ledgerService');
 
@@ -37,12 +38,9 @@ const placeOrder = async (req, res) => {
       pricingTier 
     } = req.body;
 
-    if (!customerName || !customerPhone) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Customer name and phone are required' 
-      });
-    }
+    // Use default values if not provided
+    const finalCustomerName = customerName || 'Guest';
+    const finalCustomerPhone = customerPhone || null;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ 
@@ -219,23 +217,60 @@ const placeOrder = async (req, res) => {
       }, { session });
     }
 
+    // Find or create customer record (only if phone is provided)
+    let finalCustomerId = customerId;
+    if (!finalCustomerId && finalCustomerPhone) {
+      // Normalize phone number to 10 digits (extract last 10 digits)
+      // Order model accepts flexible format, but Customer model requires exactly 10 digits
+      const normalizedPhone = finalCustomerPhone.replace(/\D/g, '').slice(-10);
+      
+      if (normalizedPhone.length === 10) {
+        // Try to find existing customer by phone
+        let customer = await Customer.findOne({ phone: normalizedPhone }).session(session);
+        
+        if (!customer) {
+          // Create new customer record
+          // Determine role based on pricing tier
+          const role = pricingTier === 'inhouse' ? 'employee' : 'customer';
+          // Generate a default password (customers can reset it later if needed)
+          const defaultPassword = `temp${Date.now()}${Math.random().toString(36).slice(2)}`;
+          
+          customer = await Customer.create([{
+            name: finalCustomerName,
+            phone: normalizedPhone,
+            password: defaultPassword,
+            role: role,
+            isVerified: role === 'customer', // Customers are auto-verified, employees need admin verification
+            isActive: true
+          }], { session });
+          
+          customer = customer[0];
+          console.log(`✅ Created new ${role} record for ${finalCustomerName} (${normalizedPhone})`);
+        } else {
+          // Update customer name if it has changed
+          if (customer.name !== finalCustomerName) {
+            customer.name = finalCustomerName;
+            await customer.save({ session });
+          }
+        }
+        
+        finalCustomerId = customer._id;
+      }
+    }
+
     // Create order within transaction
     const orderData = {
-      customerName,
-      customerPhone,
+      customerName: finalCustomerName,
+      customerPhone: finalCustomerPhone,
       items: validatedItems,
       total,
       mealTime,
       specialInstructions,
       orderType: orderType || 'NOW',
       createdBy: createdBy || 'customer',
-      pricingTier: pricingTier === 'inhouse' ? 'inhouse' : 'standard'
+      pricingTier: pricingTier === 'inhouse' ? 'inhouse' : 'standard',
+      customerId: finalCustomerId
     };
-
-    // Add customer ID if provided (for authenticated customers)
-    if (customerId) {
-      orderData.customerId = customerId;
-    }
 
     // Add scheduled information if it's a pre-order
     if (orderType === 'PREORDER' && scheduledFor) {
@@ -259,8 +294,8 @@ const placeOrder = async (req, res) => {
     const responseData = {
       ...order[0].toObject(),
       customerData: {
-        name: customerName,
-        phone: customerPhone,
+        name: finalCustomerName,
+        phone: finalCustomerPhone,
         _id: order[0].customerId || null
       }
     };

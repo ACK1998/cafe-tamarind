@@ -4,13 +4,14 @@ const orderSchema = new mongoose.Schema({
   // Customer information (no user account required)
   customerName: { 
     type: String, 
-    required: [true, 'Customer name is required'],
+    required: false,
     trim: true,
-    maxlength: [50, 'Name cannot exceed 50 characters']
+    maxlength: [50, 'Name cannot exceed 50 characters'],
+    default: 'Guest'
   },
   customerPhone: { 
     type: String, 
-    required: [true, 'Customer phone is required'],
+    required: false,
     trim: true,
     match: [/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number']
   },
