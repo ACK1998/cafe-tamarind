@@ -5,7 +5,7 @@ import { STORAGE_KEYS } from '../config/constants';
 import axios from 'axios';
 import { formatPrice } from '../utils/currencyFormatter';
 import useStore from '../store/useStore';
-import { ledgerAPI } from '../services/api';
+import { ledgerAPI, userAPI } from '../services/api';
 import { printKot } from '../utils/printUtils';
 
 const AdminCustomerOrder = () => {
@@ -20,7 +20,8 @@ const AdminCustomerOrder = () => {
     customerName: '',
     customerPhone: '',
     mealTime: 'lunch',
-    specialInstructions: ''
+    specialInstructions: '',
+    parcelCharge: ''
   });
   
   // Menu and cart state
@@ -37,6 +38,9 @@ const AdminCustomerOrder = () => {
   const [settlementNote, setSettlementNote] = useState('');
   const [settlementMethod, setSettlementMethod] = useState('cash');
   const [settlementLoading, setSettlementLoading] = useState(false);
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const lastCustomerSettlement = customerLedger?.settlements?.length
     ? customerLedger.settlements[customerLedger.settlements.length - 1]
     : null;
@@ -44,6 +48,7 @@ const AdminCustomerOrder = () => {
   useEffect(() => {
     fetchMenuItems();
     fetchCategories();
+    fetchCustomers();
   }, []);
 
   useEffect(() => {
@@ -117,12 +122,70 @@ const AdminCustomerOrder = () => {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      setCustomersLoading(true);
+      const response = await userAPI.getByRole('customer');
+      
+      // Handle different possible response structures
+      let customersList = [];
+      if (response?.data?.data) {
+        customersList = Array.isArray(response.data.data) ? response.data.data : [];
+      } else if (response?.data && Array.isArray(response.data)) {
+        customersList = response.data;
+      } else if (Array.isArray(response)) {
+        customersList = response;
+      }
+      
+      // Ensure customers have required fields
+      const validCustomers = customersList.filter(cust => cust && (cust._id || cust.id) && cust.name);
+      setCustomers(validCustomers);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
+      setCustomers([]);
+    } finally {
+      setCustomersLoading(false);
+    }
+  };
+
+  const handleCustomerSelect = (customerId) => {
+    if (customerId === '') {
+      // Clear selection
+      setSelectedCustomerId('');
+      setFormData(prev => ({
+        ...prev,
+        customerName: '',
+        customerPhone: ''
+      }));
+    } else {
+      // Find the selected customer
+      const selectedCustomer = customers.find(cust => (cust._id || cust.id) === customerId);
+      if (selectedCustomer) {
+        setSelectedCustomerId(customerId);
+        setFormData(prev => ({
+          ...prev,
+          customerName: selectedCustomer.name || '',
+          customerPhone: selectedCustomer.phone || ''
+        }));
+      }
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [name]: value
+      };
+      // Update cart total when parcel charge changes
+      if (name === 'parcelCharge') {
+        const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const parcelCharge = parseFloat(value) || 0;
+        setCartTotal(cartSubtotal + parcelCharge);
+      }
+      return updated;
+    });
   };
 
   const handleSearchChange = (e) => {
@@ -177,10 +240,11 @@ const AdminCustomerOrder = () => {
   };
 
   const updateCartTotal = (cartItems) => {
-    const total = cartItems.reduce((sum, item) => {
+    const cartSubtotal = cartItems.reduce((sum, item) => {
       return sum + (item.price * item.quantity); // Use customer pricing
     }, 0);
-    setCartTotal(total);
+    const parcelCharge = parseFloat(formData.parcelCharge) || 0;
+    setCartTotal(cartSubtotal + parcelCharge);
   };
 
   const refreshCustomerLedger = () => {
@@ -240,6 +304,7 @@ const AdminCustomerOrder = () => {
         })),
         mealTime: formData.mealTime,
         specialInstructions: formData.specialInstructions.trim(),
+        parcelCharge: formData.parcelCharge ? parseFloat(formData.parcelCharge) : 0,
         createdBy: 'admin',
         pricingTier: 'customer' // Customer pricing
       };
@@ -253,7 +318,8 @@ const AdminCustomerOrder = () => {
         customerName: '',
         customerPhone: '',
         mealTime: 'lunch',
-        specialInstructions: ''
+        specialInstructions: '',
+        parcelCharge: ''
       });
 
       // Print KOT automatically
@@ -483,13 +549,51 @@ const AdminCustomerOrder = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Customer Name
                     </label>
+                    <select
+                      value={selectedCustomerId}
+                      onChange={(e) => handleCustomerSelect(e.target.value)}
+                      className="input w-full"
+                      disabled={customersLoading}
+                    >
+                      <option value="">
+                        {customersLoading 
+                          ? 'Loading customers...' 
+                          : customers.length === 0 
+                            ? 'No customers available' 
+                            : 'Select a customer or enter manually'}
+                      </option>
+                      {customers.map((customer) => {
+                        const customerId = customer._id || customer.id;
+                        const customerName = customer.name || 'Unknown';
+                        const customerPhone = customer.phone || 'No phone';
+                        return (
+                          <option key={customerId} value={customerId}>
+                            {customerName} ({customerPhone})
+                          </option>
+                        );
+                      })}
+                    </select>
+                    {customersLoading && (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Loading customers...
+                      </p>
+                    )}
+                    {!customersLoading && customers.length === 0 && (
+                      <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
+                        No customers available. Customers will appear here once they are registered. Click "Refresh" to reload.
+                      </p>
+                    )}
+                    {/* Allow manual entry as well */}
                     <input
                       type="text"
                       name="customerName"
                       value={formData.customerName}
-                      onChange={handleInputChange}
-                      className="input w-full"
-                      placeholder="Enter customer name"
+                      onChange={(e) => {
+                        setSelectedCustomerId('');
+                        handleInputChange(e);
+                      }}
+                      className="input w-full mt-2"
+                      placeholder="Or enter name manually"
                     />
                   </div>
 
@@ -647,6 +751,22 @@ const AdminCustomerOrder = () => {
                       rows={3}
                       className="input w-full"
                       placeholder="Any special instructions..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Parcel Charge
+                    </label>
+                    <input
+                      type="number"
+                      name="parcelCharge"
+                      value={formData.parcelCharge}
+                      onChange={handleInputChange}
+                      className="input w-full"
+                      placeholder="Enter parcel charge"
+                      min="0"
+                      step="0.01"
                     />
                   </div>
                 </form>

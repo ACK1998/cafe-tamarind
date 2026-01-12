@@ -35,7 +35,8 @@ const placeOrder = async (req, res) => {
       preOrderDateTime, 
       customerId, 
       createdBy,
-      pricingTier 
+      pricingTier,
+      parcelCharge
     } = req.body;
 
     // Use default values if not provided
@@ -258,12 +259,17 @@ const placeOrder = async (req, res) => {
       }
     }
 
+    // Add parcel charge to total if provided
+    const parcelChargeAmount = parcelCharge ? parseFloat(parcelCharge) : 0;
+    const finalTotal = total + parcelChargeAmount;
+
     // Create order within transaction
     const orderData = {
       customerName: finalCustomerName,
       customerPhone: finalCustomerPhone,
       items: validatedItems,
-      total,
+      total: finalTotal,
+      parcelCharge: parcelChargeAmount,
       mealTime,
       specialInstructions,
       orderType: orderType || 'NOW',

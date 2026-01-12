@@ -20,7 +20,8 @@ const AdminInHouseOrder = () => {
     customerName: '',
     customerPhone: '',
     mealTime: 'lunch',
-    specialInstructions: ''
+    specialInstructions: '',
+    parcelCharge: ''
   });
   
   // Menu and cart state
@@ -311,10 +312,22 @@ const AdminInHouseOrder = () => {
         customerName: value
       }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData(prev => {
+        const updated = {
+          ...prev,
+          [name]: value
+        };
+        // Update cart total when parcel charge changes
+        if (name === 'parcelCharge') {
+          const cartSubtotal = cart.reduce((sum, item) => {
+            const unitPrice = item.inHousePrice != null ? item.inHousePrice : item.price;
+            return sum + (unitPrice * item.quantity);
+          }, 0);
+          const parcelCharge = parseFloat(value) || 0;
+          setCartTotal(cartSubtotal + parcelCharge);
+        }
+        return updated;
+      });
       // Clear selected employee if user manually edits phone
       if (name === 'customerPhone') {
         setSelectedEmployeeId('');
@@ -374,12 +387,13 @@ const AdminInHouseOrder = () => {
   };
 
   const updateCartTotal = (cartItems) => {
-    const total = cartItems.reduce((sum, item) => {
+    const cartSubtotal = cartItems.reduce((sum, item) => {
       // Use in-house pricing (inHousePrice if available, otherwise price)
       const unitPrice = item.inHousePrice != null ? item.inHousePrice : item.price;
       return sum + (unitPrice * item.quantity);
     }, 0);
-    setCartTotal(total);
+    const parcelCharge = parseFloat(formData.parcelCharge) || 0;
+    setCartTotal(cartSubtotal + parcelCharge);
   };
 
   const refreshEmployeeLedger = () => {
@@ -453,6 +467,7 @@ const AdminInHouseOrder = () => {
         })),
         mealTime: formData.mealTime,
         specialInstructions: formData.specialInstructions.trim(),
+        parcelCharge: formData.parcelCharge ? parseFloat(formData.parcelCharge) : 0,
         createdBy: 'admin',
         pricingTier: 'inhouse' // In-house pricing
       };
@@ -465,7 +480,8 @@ const AdminInHouseOrder = () => {
         customerName: '',
         customerPhone: '',
         mealTime: 'lunch',
-        specialInstructions: ''
+        specialInstructions: '',
+        parcelCharge: ''
       });
       setSelectedEmployeeId('');
       setShowEmployeeDropdown(false);
@@ -977,6 +993,22 @@ const AdminInHouseOrder = () => {
                       placeholder="Any special instructions..."
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Parcel Charge
+                    </label>
+                    <input
+                      type="number"
+                      name="parcelCharge"
+                      value={formData.parcelCharge}
+                      onChange={handleInputChange}
+                      className="input w-full"
+                      placeholder="Enter parcel charge"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
                 </form>
               </div>
             </div>
@@ -1026,6 +1058,16 @@ const AdminInHouseOrder = () => {
                     ))}
 
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                      {formData.parcelCharge && parseFloat(formData.parcelCharge) > 0 && (
+                        <div className="flex justify-between items-center mb-2 text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Parcel Charge:
+                          </span>
+                          <span className="text-gray-900 dark:text-white">
+                            {formatPrice(parseFloat(formData.parcelCharge) || 0)}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-lg font-semibold text-gray-900 dark:text-white">
                           Total:

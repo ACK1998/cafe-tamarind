@@ -62,6 +62,11 @@ const orderSchema = new mongoose.Schema({
     required: [true, 'Order total is required'],
     min: [0, 'Total cannot be negative']
   },
+  parcelCharge: {
+    type: Number,
+    default: 0,
+    min: [0, 'Parcel charge cannot be negative']
+  },
   mealTime: { 
     type: String, 
     enum: ['breakfast', 'lunch', 'dinner', 'pre-order'], 

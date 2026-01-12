@@ -99,7 +99,8 @@ const AdminOrders = () => {
     name: '',
     phone: '',
     mealTime: 'lunch',
-    specialInstructions: ''
+    specialInstructions: '',
+    parcelCharge: ''
   });
   const [notification, setNotification] = useState({ isOpen: false, title: '', message: '', type: 'info' });
   const [billsPrinted, setBillsPrinted] = useState(new Set()); // Track which orders have had bills printed
@@ -108,6 +109,11 @@ const AdminOrders = () => {
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  
+  // Customer dropdown state (for customer orders)
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
 
   // Detect order type from URL
   useEffect(() => {
@@ -138,6 +144,10 @@ const AdminOrders = () => {
         // Fetch employees when in place mode and order type is inhouse
         if (orderType === 'inhouse') {
           fetchEmployees();
+        }
+        // Fetch customers when in place mode and order type is customer
+        if (orderType === 'customer') {
+          fetchCustomers();
         }
       }
     }, 100);
@@ -177,6 +187,38 @@ const AdminOrders = () => {
     }
   };
   
+  // Fetch customers for customer orders
+  const fetchCustomers = async () => {
+    try {
+      setCustomersLoading(true);
+      console.log('Fetching customers for customer orders...');
+      const response = await userAPI.getByRole('customer');
+      console.log('Customers API response:', response);
+      
+      // Handle different possible response structures
+      let customersList = [];
+      if (response?.data?.data) {
+        customersList = Array.isArray(response.data.data) ? response.data.data : [];
+      } else if (response?.data && Array.isArray(response.data)) {
+        customersList = response.data;
+      } else if (Array.isArray(response)) {
+        customersList = response;
+      }
+      
+      // Ensure customers have required fields
+      const validCustomers = customersList.filter(cust => cust && (cust._id || cust.id) && cust.name);
+      console.log('Valid customers found:', validCustomers.length);
+      
+      setCustomers(validCustomers);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
+      console.error('Error details:', err.response?.data || err.message);
+      setCustomers([]);
+    } finally {
+      setCustomersLoading(false);
+    }
+  };
+  
   // Handle employee selection from dropdown
   const handleEmployeeSelect = (employeeId) => {
     if (employeeId === '') {
@@ -198,6 +240,31 @@ const AdminOrders = () => {
           phone: selectedEmployee.phone || ''
         }));
         console.log('Employee selected:', selectedEmployee);
+      }
+    }
+  };
+  
+  // Handle customer selection from dropdown
+  const handleCustomerSelect = (customerId) => {
+    if (customerId === '') {
+      // Clear selection
+      setSelectedCustomerId('');
+      setCustomerInfo(prev => ({
+        ...prev,
+        name: '',
+        phone: ''
+      }));
+    } else {
+      // Find the selected customer
+      const selectedCustomer = customers.find(cust => (cust._id || cust.id) === customerId);
+      if (selectedCustomer) {
+        setSelectedCustomerId(customerId);
+        setCustomerInfo(prev => ({
+          ...prev,
+          name: selectedCustomer.name || '',
+          phone: selectedCustomer.phone || ''
+        }));
+        console.log('Customer selected:', selectedCustomer);
       }
     }
   };
@@ -306,7 +373,9 @@ const AdminOrders = () => {
   };
 
   const getCartTotal = () => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+    const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+    const parcelCharge = parseFloat(customerInfo.parcelCharge) || 0;
+    return cartTotal + parcelCharge;
   };
 
   const getItemQuantity = (item) => {
@@ -328,6 +397,7 @@ const AdminOrders = () => {
         customerPhone: customerInfo.phone?.trim() || undefined,
         mealTime: customerInfo.mealTime,
         specialInstructions: customerInfo.specialInstructions.trim(),
+        parcelCharge: customerInfo.parcelCharge ? parseFloat(customerInfo.parcelCharge) : 0,
         items: cart.map(item => ({
           menuItemId: item._id,
           qty: item.quantity
@@ -346,7 +416,8 @@ const AdminOrders = () => {
         name: '',
         phone: '',
         mealTime: 'lunch',
-        specialInstructions: ''
+        specialInstructions: '',
+        parcelCharge: ''
       });
       setViewMode('view');
 
@@ -867,6 +938,9 @@ const AdminOrders = () => {
                           {orderType === 'inhouse' && employees.length > 0 && (
                             <span className="ml-2 text-xs text-gray-500">({employees.length} employees available)</span>
                           )}
+                          {orderType === 'customer' && customers.length > 0 && (
+                            <span className="ml-2 text-xs text-gray-500">({customers.length} customers available)</span>
+                          )}
                         </label>
                         {orderType === 'inhouse' && (
                           <button
@@ -876,6 +950,16 @@ const AdminOrders = () => {
                             className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
                           >
                             {employeesLoading ? 'Loading...' : 'Refresh'}
+                          </button>
+                        )}
+                        {orderType === 'customer' && (
+                          <button
+                            type="button"
+                            onClick={fetchCustomers}
+                            disabled={customersLoading}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                          >
+                            {customersLoading ? 'Loading...' : 'Refresh'}
                           </button>
                         )}
                       </div>
@@ -927,14 +1011,52 @@ const AdminOrders = () => {
                           />
                         </>
                       ) : (
-                        <input
-                          type="text"
-                          value={customerInfo.name}
-                          onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
-                          placeholder="Enter customer name"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                          required
-                        />
+                        <>
+                          <select
+                            value={selectedCustomerId}
+                            onChange={(e) => handleCustomerSelect(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                            disabled={customersLoading}
+                          >
+                            <option value="">
+                              {customersLoading 
+                                ? 'Loading customers...' 
+                                : customers.length === 0 
+                                  ? 'No customers available' 
+                                  : 'Select a customer or enter manually'}
+                            </option>
+                            {customers.map((customer) => {
+                              const customerId = customer._id || customer.id;
+                              const customerName = customer.name || 'Unknown';
+                              const customerPhone = customer.phone || 'No phone';
+                              return (
+                                <option key={customerId} value={customerId}>
+                                  {customerName} ({customerPhone})
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {customersLoading && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              Loading customers...
+                            </p>
+                          )}
+                          {!customersLoading && customers.length === 0 && (
+                            <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
+                              No customers available. Click "Refresh" to reload.
+                            </p>
+                          )}
+                          <input
+                            type="text"
+                            value={customerInfo.name}
+                            onChange={(e) => {
+                              setSelectedCustomerId('');
+                              setCustomerInfo({...customerInfo, name: e.target.value});
+                            }}
+                            placeholder="Or enter name manually"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white mt-2"
+                          />
+                        </>
                       )}
                     </div>
 
@@ -944,19 +1066,28 @@ const AdminOrders = () => {
                         {orderType === 'inhouse' && selectedEmployeeId && (
                           <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Auto-filled from employee info)</span>
                         )}
+                        {orderType === 'customer' && selectedCustomerId && (
+                          <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Auto-filled from customer info)</span>
+                        )}
                       </label>
                       <input
                         type="tel"
                         value={customerInfo.phone}
                         onChange={(e) => {
-                          setSelectedEmployeeId('');
+                          if (orderType === 'inhouse') {
+                            setSelectedEmployeeId('');
+                          } else {
+                            setSelectedCustomerId('');
+                          }
                           setCustomerInfo({...customerInfo, phone: e.target.value});
                         }}
                         placeholder="Enter phone number"
                         className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white ${
-                          orderType === 'inhouse' && selectedEmployeeId ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''
+                          (orderType === 'inhouse' && selectedEmployeeId) || (orderType === 'customer' && selectedCustomerId) 
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' 
+                            : ''
                         }`}
-                        readOnly={orderType === 'inhouse' && !!selectedEmployeeId}
+                        readOnly={(orderType === 'inhouse' && !!selectedEmployeeId) || (orderType === 'customer' && !!selectedCustomerId)}
                         required
                       />
                     </div>
@@ -985,6 +1116,21 @@ const AdminOrders = () => {
                         onChange={(e) => setCustomerInfo({...customerInfo, specialInstructions: e.target.value})}
                         placeholder="Any special instructions..."
                         rows="3"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Parcel Charge
+                      </label>
+                      <input
+                        type="number"
+                        value={customerInfo.parcelCharge}
+                        onChange={(e) => setCustomerInfo({...customerInfo, parcelCharge: e.target.value})}
+                        placeholder="Enter parcel charge"
+                        min="0"
+                        step="0.01"
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
                       />
                     </div>
@@ -1035,6 +1181,16 @@ const AdminOrders = () => {
                       ))}
                       
                       <div className="border-t pt-4">
+                        {customerInfo.parcelCharge && parseFloat(customerInfo.parcelCharge) > 0 && (
+                          <div className="flex justify-between items-center mb-2 text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">
+                              Parcel Charge:
+                            </span>
+                            <span className="text-gray-900 dark:text-white">
+                              {formatPrice(parseFloat(customerInfo.parcelCharge) || 0)}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex justify-between items-center mb-4">
                           <span className="text-lg font-semibold text-gray-900 dark:text-white">Total:</span>
                           <span className="text-lg font-bold text-gray-900 dark:text-white">
