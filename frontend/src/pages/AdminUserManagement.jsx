@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, CheckCircle, XCircle, Edit, Trash2, Shield, UserCheck, UserX, Eye, X } from 'lucide-react';
+import { Users, CheckCircle, XCircle, Edit, Trash2, Shield, UserCheck, UserX, Eye, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import AdminHeader from '../components/AdminHeader';
 import { userAPI } from '../services/api';
 import { formatPrice } from '../utils/currencyFormatter';
@@ -17,6 +17,23 @@ const AdminUserManagement = () => {
   const [userOrdersLoading, setUserOrdersLoading] = useState(false);
   const [userOrdersError, setUserOrdersError] = useState('');
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  
+  // Table controls state
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [nameFilter, setNameFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  
+  // Orders table in modal controls state
+  const [orderSortField, setOrderSortField] = useState('createdAt');
+  const [orderSortOrder, setOrderSortOrder] = useState('desc');
+  const [orderNameFilter, setOrderNameFilter] = useState('');
+  const [orderDateFromFilter, setOrderDateFromFilter] = useState('');
+  const [orderDateToFilter, setOrderDateToFilter] = useState('');
+  const [orderCurrentPage, setOrderCurrentPage] = useState(1);
+  const [orderPageSize, setOrderPageSize] = useState(20);
 
   useEffect(() => {
     // Add a small delay to prevent rapid API calls
@@ -92,6 +109,14 @@ const AdminUserManagement = () => {
     setUserOrdersError('');
     setSelectedOrderIds([]);
     setUserOrdersLoading(false);
+    // Reset order table filters
+    setOrderSortField('createdAt');
+    setOrderSortOrder('desc');
+    setOrderNameFilter('');
+    setOrderDateFromFilter('');
+    setOrderDateToFilter('');
+    setOrderCurrentPage(1);
+    setOrderPageSize(20);
   };
 
   const toggleOrderSelection = (orderId) => {
@@ -108,10 +133,14 @@ const AdminUserManagement = () => {
       return;
     }
 
-    if (selectedOrderIds.length === userOrdersData.orders.length) {
+    // Get all order IDs (not just filtered ones) for select all
+    const allOrderIds = userOrdersData.orders.map((order) => order._id);
+    const allSelected = allOrderIds.every(id => selectedOrderIds.includes(id));
+
+    if (allSelected) {
       setSelectedOrderIds([]);
     } else {
-      setSelectedOrderIds(userOrdersData.orders.map((order) => order._id));
+      setSelectedOrderIds([...allOrderIds]);
     }
   };
 
@@ -160,18 +189,97 @@ const AdminUserManagement = () => {
     return Array.from(itemMap.values());
   }, [selectedOrders]);
 
-  const filteredUsers = users.filter(user => {
-    switch (filter) {
-      case 'customer':
-        return user.role === 'customer';
-      case 'employee':
-        return user.role === 'employee';
-      case 'unverified':
-        return !user.isVerified;
-      default:
-        return true;
+  const filteredUsers = useMemo(() => {
+    let result = users.filter(user => {
+      switch (filter) {
+        case 'customer':
+          return user.role === 'customer';
+        case 'employee':
+          return user.role === 'employee';
+        case 'unverified':
+          return !user.isVerified;
+        default:
+          return true;
+      }
+    });
+
+    // Filter by name
+    if (nameFilter.trim()) {
+      const searchTerm = nameFilter.toLowerCase().trim();
+      result = result.filter(user => 
+        user.name?.toLowerCase().includes(searchTerm) ||
+        user.phone?.includes(searchTerm) ||
+        user.email?.toLowerCase().includes(searchTerm)
+      );
     }
-  });
+
+    // Filter by date
+    if (dateFilter) {
+      result = result.filter(user => {
+        const userDate = new Date(user.createdAt).toDateString();
+        const filterDate = new Date(dateFilter).toDateString();
+        return userDate === filterDate;
+      });
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortField) {
+        case 'name':
+          aValue = (a.name || '').toLowerCase();
+          bValue = (b.name || '').toLowerCase();
+          break;
+        case 'role':
+          aValue = a.role || '';
+          bValue = b.role || '';
+          break;
+        case 'totalSpent':
+          aValue = a.totalSpent || 0;
+          bValue = b.totalSpent || 0;
+          break;
+        case 'createdAt':
+        default:
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
+          break;
+      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [users, filter, nameFilter, dateFilter, sortField, sortOrder]);
+
+  // Paginate
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(startIndex, startIndex + pageSize);
+  }, [filteredUsers, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredUsers.length / pageSize);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-4 h-4 inline ml-1 text-gray-400" />;
+    }
+    return sortOrder === 'asc' 
+      ? <ArrowUp className="w-4 h-4 inline ml-1 text-orange-500" />
+      : <ArrowDown className="w-4 h-4 inline ml-1 text-orange-500" />;
+  };
 
   const stats = {
     total: users.length,
@@ -300,26 +408,103 @@ const AdminUserManagement = () => {
           </div>
         )}
 
+        {/* Filters and Controls */}
+        <div className="card mb-6">
+          <div className="p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Filter by name, phone, or email..."
+                  value={nameFilter}
+                  onChange={(e) => {
+                    setNameFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => {
+                    setDateFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                >
+                  <option value={10}>10 per page</option>
+                  <option value={20}>20 per page</option>
+                  <option value={50}>50 per page</option>
+                  <option value={100}>100 per page</option>
+                </select>
+              </div>
+            </div>
+            {(nameFilter || dateFilter) && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setNameFilter('');
+                    setDateFilter('');
+                    setCurrentPage(1);
+                  }}
+                  className="text-sm text-orange-600 dark:text-orange-400 hover:underline"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Users Table */}
         <div className="card overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Total: {filteredUsers.length} users • Showing: {paginatedUsers.length}
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    User
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => handleSort('name')}
+                  >
+                    User {getSortIcon('name')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Role
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => handleSort('role')}
+                  >
+                    Role {getSortIcon('role')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Total Spent
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => handleSort('totalSpent')}
+                  >
+                    Total Spent {getSortIcon('totalSpent')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Joined
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => handleSort('createdAt')}
+                  >
+                    Joined {getSortIcon('createdAt')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Actions
@@ -327,7 +512,7 @@ const AdminUserManagement = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredUsers.map((user) => (
+                {paginatedUsers.map((user) => (
                   <tr key={user._id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -410,6 +595,58 @@ const AdminUserManagement = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredUsers.length)} of {filteredUsers.length} users
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-2 rounded-lg text-sm ${
+                          currentPage === pageNum
+                            ? 'bg-orange-500 text-white'
+                            : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Edit User Modal */}
@@ -517,8 +754,109 @@ const AdminUserManagement = () => {
                 ) : userOrdersData ? (
                   (() => {
                     const summary = userOrdersData.summary || {};
-                    const orders = userOrdersData.orders || [];
+                    const allOrders = userOrdersData.orders || [];
                     const ledgers = userOrdersData.ledgers || [];
+
+                    // Filter and sort orders
+                    let filteredOrders = [...allOrders];
+
+                    // Filter by name/order number
+                    if (orderNameFilter.trim()) {
+                      const searchTerm = orderNameFilter.toLowerCase().trim();
+                      filteredOrders = filteredOrders.filter(order => 
+                        (order.orderNumber || '').toString().toLowerCase().includes(searchTerm) ||
+                        (order._id || '').toString().toLowerCase().includes(searchTerm) ||
+                        (order.pricingTier || '').toLowerCase().includes(searchTerm) ||
+                        (order.status || '').toLowerCase().includes(searchTerm)
+                      );
+                    }
+
+                    // Filter by date range
+                    if (orderDateFromFilter || orderDateToFilter) {
+                      filteredOrders = filteredOrders.filter(order => {
+                        const orderDate = new Date(order.createdAt);
+                        orderDate.setHours(0, 0, 0, 0); // Reset time to start of day
+                        
+                        if (orderDateFromFilter && orderDateToFilter) {
+                          // Both dates provided - check if order date is within range
+                          const fromDate = new Date(orderDateFromFilter);
+                          fromDate.setHours(0, 0, 0, 0);
+                          const toDate = new Date(orderDateToFilter);
+                          toDate.setHours(23, 59, 59, 999); // End of day
+                          return orderDate >= fromDate && orderDate <= toDate;
+                        } else if (orderDateFromFilter) {
+                          // Only from date - check if order date is on or after from date
+                          const fromDate = new Date(orderDateFromFilter);
+                          fromDate.setHours(0, 0, 0, 0);
+                          return orderDate >= fromDate;
+                        } else if (orderDateToFilter) {
+                          // Only to date - check if order date is on or before to date
+                          const toDate = new Date(orderDateToFilter);
+                          toDate.setHours(23, 59, 59, 999); // End of day
+                          return orderDate <= toDate;
+                        }
+                        return true;
+                      });
+                    }
+
+                    // Sort orders
+                    filteredOrders.sort((a, b) => {
+                      let aValue, bValue;
+                      
+                      switch (orderSortField) {
+                        case 'orderNumber':
+                          aValue = (a.orderNumber || '').toString();
+                          bValue = (b.orderNumber || '').toString();
+                          break;
+                        case 'pricingTier':
+                          aValue = (a.pricingTier || 'standard').toLowerCase();
+                          bValue = (b.pricingTier || 'standard').toLowerCase();
+                          break;
+                        case 'total':
+                          aValue = a.total || 0;
+                          bValue = b.total || 0;
+                          break;
+                        case 'status':
+                          aValue = (a.status || '').toLowerCase();
+                          bValue = (b.status || '').toLowerCase();
+                          break;
+                        case 'createdAt':
+                        default:
+                          aValue = new Date(a.createdAt).getTime();
+                          bValue = new Date(b.createdAt).getTime();
+                          break;
+                      }
+
+                      if (aValue < bValue) return orderSortOrder === 'asc' ? -1 : 1;
+                      if (aValue > bValue) return orderSortOrder === 'asc' ? 1 : -1;
+                      return 0;
+                    });
+
+                    // Paginate orders
+                    const orderStartIndex = (orderCurrentPage - 1) * orderPageSize;
+                    const paginatedOrders = filteredOrders.slice(orderStartIndex, orderStartIndex + orderPageSize);
+                    const orderTotalPages = Math.ceil(filteredOrders.length / orderPageSize);
+
+                    const handleOrderSort = (field) => {
+                      if (orderSortField === field) {
+                        setOrderSortOrder(orderSortOrder === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setOrderSortField(field);
+                        setOrderSortOrder('asc');
+                      }
+                      setOrderCurrentPage(1);
+                    };
+
+                    const getOrderSortIcon = (field) => {
+                      if (orderSortField !== field) {
+                        return <ArrowUpDown className="w-4 h-4 inline ml-1 text-gray-400" />;
+                      }
+                      return orderSortOrder === 'asc' 
+                        ? <ArrowUp className="w-4 h-4 inline ml-1 text-orange-500" />
+                        : <ArrowDown className="w-4 h-4 inline ml-1 text-orange-500" />;
+                    };
+
+                    const orders = allOrders; // Keep original for display count
 
                     return (
                       <div className="space-y-6">
@@ -609,71 +947,172 @@ const AdminUserManagement = () => {
                         </div>
 
                         <div className="card">
-                          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <h4 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                                Orders ({orders.length})
-                              </h4>
-                              <div className="flex items-center flex-wrap gap-2 mt-1">
-                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200">
-                                  Selected {selectedOrderIds.length}
-                                </span>
-                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                  {formatPrice(selectedTotal)}
-                                </span>
+                          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                                  Orders ({orders.length})
+                                </h4>
+                                <div className="flex items-center flex-wrap gap-2 mt-1">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200">
+                                    Selected {selectedOrderIds.length}
+                                  </span>
+                                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                                    {formatPrice(selectedTotal)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <label className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                                  <input
+                                    type="checkbox"
+                                    className="mr-2"
+                                    onChange={toggleSelectAllOrders}
+                                    checked={orders.length > 0 && orders.every(order => selectedOrderIds.includes(order._id))}
+                                  />
+                                  Select All
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={handlePrintCombinedBill}
+                                  disabled={selectedOrderIds.length === 0}
+                                  className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Print Combined Bill
+                                </button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <label className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                                <input
-                                  type="checkbox"
-                                  className="mr-2"
-                                  onChange={toggleSelectAllOrders}
-                                  checked={orders.length > 0 && selectedOrderIds.length === orders.length}
-                                />
-                                Select All
-                              </label>
-                              <button
-                                type="button"
-                                onClick={handlePrintCombinedBill}
-                                disabled={selectedOrderIds.length === 0}
-                                className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Print Combined Bill
-                              </button>
+
+                            {/* Filters */}
+                            <div className="space-y-3">
+                              <div className="flex flex-col sm:flex-row gap-3 items-end">
+                                <div className="flex-1">
+                                  <input
+                                    type="text"
+                                    placeholder="Filter by order number, type, or status..."
+                                    value={orderNameFilter}
+                                    onChange={(e) => {
+                                      setOrderNameFilter(e.target.value);
+                                      setOrderCurrentPage(1);
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm"
+                                  />
+                                </div>
+                                <div className="flex gap-2">
+                                  <div className="flex flex-col">
+                                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">From</label>
+                                    <input
+                                      type="date"
+                                      value={orderDateFromFilter}
+                                      onChange={(e) => {
+                                        setOrderDateFromFilter(e.target.value);
+                                        setOrderCurrentPage(1);
+                                      }}
+                                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm h-[38px]"
+                                    />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">To</label>
+                                    <input
+                                      type="date"
+                                      value={orderDateToFilter}
+                                      onChange={(e) => {
+                                        setOrderDateToFilter(e.target.value);
+                                        setOrderCurrentPage(1);
+                                      }}
+                                      min={orderDateFromFilter || undefined}
+                                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm h-[38px]"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex flex-col">
+                                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">Per Page</label>
+                                  <select
+                                    value={orderPageSize}
+                                    onChange={(e) => {
+                                      setOrderPageSize(Number(e.target.value));
+                                      setOrderCurrentPage(1);
+                                    }}
+                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm h-[38px]"
+                                  >
+                                    <option value={10}>10 per page</option>
+                                    <option value={20}>20 per page</option>
+                                    <option value={50}>50 per page</option>
+                                    <option value={100}>100 per page</option>
+                                  </select>
+                                </div>
+                              </div>
+                              {(orderNameFilter || orderDateFromFilter || orderDateToFilter) && (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setOrderNameFilter('');
+                                      setOrderDateFromFilter('');
+                                      setOrderDateToFilter('');
+                                      setOrderCurrentPage(1);
+                                    }}
+                                    className="text-xs text-orange-600 dark:text-orange-400 hover:underline"
+                                  >
+                                    Clear filters
+                                  </button>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Showing {filteredOrders.length} of {orders.length} orders
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                           {orders.length === 0 ? (
                             <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
                               No orders found for this user.
                             </div>
+                          ) : filteredOrders.length === 0 ? (
+                            <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
+                              No orders match your filters.
+                            </div>
                           ) : (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
-                                <thead className="bg-gray-50 dark:bg-gray-800">
-                                  <tr>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                      Select
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                      Order
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                      Type
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                      Total
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                      Status
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                      Created
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                                  {orders.map((order) => (
+                            <>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50 dark:bg-gray-800">
+                                    <tr>
+                                      <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Select
+                                      </th>
+                                      <th 
+                                        className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        onClick={() => handleOrderSort('orderNumber')}
+                                      >
+                                        Order {getOrderSortIcon('orderNumber')}
+                                      </th>
+                                      <th 
+                                        className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        onClick={() => handleOrderSort('pricingTier')}
+                                      >
+                                        Type {getOrderSortIcon('pricingTier')}
+                                      </th>
+                                      <th 
+                                        className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        onClick={() => handleOrderSort('total')}
+                                      >
+                                        Total {getOrderSortIcon('total')}
+                                      </th>
+                                      <th 
+                                        className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        onClick={() => handleOrderSort('status')}
+                                      >
+                                        Status {getOrderSortIcon('status')}
+                                      </th>
+                                      <th 
+                                        className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        onClick={() => handleOrderSort('createdAt')}
+                                      >
+                                        Created {getOrderSortIcon('createdAt')}
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                                    {paginatedOrders.map((order) => (
                                     <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                                       <td className="px-4 py-3">
                                         <input
@@ -701,11 +1140,64 @@ const AdminUserManagement = () => {
                                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                                         {new Date(order.createdAt).toLocaleString()}
                                       </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              {/* Pagination */}
+                              {orderTotalPages > 1 && (
+                                <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                                    Showing {((orderCurrentPage - 1) * orderPageSize) + 1} to {Math.min(orderCurrentPage * orderPageSize, filteredOrders.length)} of {filteredOrders.length} orders
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => setOrderCurrentPage(prev => Math.max(1, prev - 1))}
+                                      disabled={orderCurrentPage === 1}
+                                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white"
+                                    >
+                                      <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <div className="flex items-center gap-1">
+                                      {Array.from({ length: Math.min(5, orderTotalPages) }, (_, i) => {
+                                        let pageNum;
+                                        if (orderTotalPages <= 5) {
+                                          pageNum = i + 1;
+                                        } else if (orderCurrentPage <= 3) {
+                                          pageNum = i + 1;
+                                        } else if (orderCurrentPage >= orderTotalPages - 2) {
+                                          pageNum = orderTotalPages - 4 + i;
+                                        } else {
+                                          pageNum = orderCurrentPage - 2 + i;
+                                        }
+                                        return (
+                                          <button
+                                            key={pageNum}
+                                            onClick={() => setOrderCurrentPage(pageNum)}
+                                            className={`px-3 py-2 rounded-lg text-xs ${
+                                              orderCurrentPage === pageNum
+                                                ? 'bg-orange-500 text-white'
+                                                : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white'
+                                            }`}
+                                          >
+                                            {pageNum}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <button
+                                      onClick={() => setOrderCurrentPage(prev => Math.min(orderTotalPages, prev + 1))}
+                                      disabled={orderCurrentPage === orderTotalPages}
+                                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white"
+                                    >
+                                      <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
 

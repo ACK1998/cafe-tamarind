@@ -16,6 +16,7 @@ const feedbackRoutes = require('./routes/feedbackRoutes');
 const customerRoutes = require('./routes/customerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const ledgerRoutes = require('./routes/ledgerRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 const app = express();
 
@@ -61,11 +62,31 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
-// CORS configuration
-app.use(cors({
-  origin: API_CONFIG.CORS_ORIGIN,
+// CORS configuration - allow localhost and network IPs for development
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      API_CONFIG.CORS_ORIGIN,
+      'http://localhost:3006',
+      'http://127.0.0.1:3006'
+    ];
+    
+    // Also allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    const isLocalNetwork = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin);
+    
+    if (allowedOrigins.includes(origin) || isLocalNetwork) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json({ limit: API_CONFIG.BODY_LIMIT }));
@@ -149,6 +170,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ledger', ledgerRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

@@ -2,9 +2,26 @@ import axios from 'axios';
 import { API_CONFIG, STORAGE_KEYS } from '../config/constants';
 import { apiCallWithRetry } from '../utils/apiHelpers';
 
+// Get API base URL - use current origin if accessing from network (not localhost)
+const getApiBaseUrl = () => {
+  // If we're accessing from a network IP (not localhost), use the same origin for API
+  if (typeof window !== 'undefined') {
+    const currentOrigin = window.location.origin;
+    // If accessing via IP address (not localhost), use same origin for API
+    if (currentOrigin.includes('192.168.') || currentOrigin.includes('10.') || currentOrigin.includes('172.')) {
+      // Replace frontend port with backend port
+      const apiUrl = currentOrigin.replace(':3006', ':5006') + '/api';
+      console.log('🌐 Using network API URL:', apiUrl);
+      return apiUrl;
+    }
+  }
+  // Default to configured API URL
+  return API_CONFIG.BASE_URL;
+};
+
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: API_CONFIG.BASE_URL,
+  baseURL: getApiBaseUrl(),
   timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
@@ -13,7 +30,7 @@ const api = axios.create({
 
 // Create customer axios instance with base configuration
 const customerApi = axios.create({
-  baseURL: API_CONFIG.BASE_URL,
+  baseURL: getApiBaseUrl(),
   timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
@@ -94,8 +111,8 @@ export const ordersAPI = {
     }
     return apiCallWithRetry(() => api.get('/orders/admin/all', { params }));
   },
-  getAdminCustomerOrders: () => apiCallWithRetry(() => api.get('/orders/admin/customer')),
-  getAdminInHouseOrders: () => apiCallWithRetry(() => api.get('/orders/admin/inhouse')),
+  getAdminCustomerOrders: (params = {}) => apiCallWithRetry(() => api.get('/orders/admin/customer', { params })),
+  getAdminInHouseOrders: (params = {}) => apiCallWithRetry(() => api.get('/orders/admin/inhouse', { params })),
   updateStatus: (id, status) => apiCallWithRetry(() => api.put(`/orders/admin/${id}`, { status })),
 };
 
@@ -148,6 +165,26 @@ export const feedbackAPI = {
     api.get('/feedback/admin/analytics', { params: { period } })
   ),
   delete: (feedbackId) => apiCallWithRetry(() => api.delete(`/feedback/admin/${feedbackId}`)),
+};
+
+// Review API calls (order-level reviews)
+export const reviewAPI = {
+  // Generate review token for an order
+  generateToken: (orderId) => apiCallWithRetry(() => api.post('/reviews/generate-token', { orderId })),
+  
+  // Validate review token and get order details
+  validateToken: (token) => apiCallWithRetry(() => 
+    api.get('/reviews/validate-token', { params: { token } })
+  ),
+  
+  // Submit order review
+  submit: (reviewData) => apiCallWithRetry(() => api.post('/reviews/submit', reviewData)),
+  
+  // Get review by order ID
+  getOrderReview: (orderId) => apiCallWithRetry(() => api.get(`/reviews/order/${orderId}`)),
+  
+  // Admin: Get all reviews
+  getAll: (params = {}) => apiCallWithRetry(() => api.get('/reviews/admin/all', { params })),
 };
 
 export default api;

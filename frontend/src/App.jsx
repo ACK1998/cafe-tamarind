@@ -16,6 +16,7 @@ import CustomerLogin from './pages/CustomerLogin';
 import CustomerRegister from './pages/CustomerRegister';
 import CustomerProfile from './pages/CustomerProfile';
 import FoodItemDetail from './pages/FoodItemDetail';
+import Review from './pages/Review';
 
 // Admin Pages
 import AdminLogin from './pages/AdminLogin';
@@ -49,6 +50,7 @@ function App() {
               <Route path="/order/:orderId" element={<OrderDetails />} />
               <Route path="/orders/:phone" element={<CustomerOrders />} />
               <Route path="/item/:itemId" element={<FoodItemDetail />} />
+              <Route path="/review" element={<Review />} />
               <Route path={ROUTES.LOGIN} element={<CustomerLogin />} />
               <Route path={ROUTES.REGISTER} element={<CustomerRegister />} />
               <Route path="/customer/register" element={<CustomerRegister />} />

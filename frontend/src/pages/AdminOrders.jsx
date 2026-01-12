@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Package, Clock, CheckCircle, AlertCircle, Users, Building, ShoppingCart, Eye, Info, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Package, Clock, CheckCircle, AlertCircle, Users, Building, ShoppingCart, Eye, Info, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import useStore from '../store/useStore';
 import { STORAGE_KEYS } from '../config/constants';
 import AdminHeader from '../components/AdminHeader';
@@ -104,6 +104,15 @@ const AdminOrders = () => {
   });
   const [notification, setNotification] = useState({ isOpen: false, title: '', message: '', type: 'info' });
   const [billsPrinted, setBillsPrinted] = useState(new Set()); // Track which orders have had bills printed
+  
+  // Table controls state
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [nameFilter, setNameFilter] = useState('');
+  const [dateFromFilter, setDateFromFilter] = useState('');
+  const [dateToFilter, setDateToFilter] = useState('');
   
   // Employee dropdown state (for in-house orders)
   const [employees, setEmployees] = useState([]);
@@ -272,9 +281,10 @@ const AdminOrders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      // Fetch all orders with a high limit (1000) to get all data for client-side pagination
       const response = orderType === 'customer' 
-        ? await ordersAPI.getAdminCustomerOrders()
-        : await ordersAPI.getAdminInHouseOrders();
+        ? await ordersAPI.getAdminCustomerOrders({ page: 1, limit: 1000 })
+        : await ordersAPI.getAdminInHouseOrders({ page: 1, limit: 1000 });
       
       const ordersData = response.data.data;
       setOrders(ordersData);
@@ -462,6 +472,111 @@ const AdminOrders = () => {
       default:
         return <AlertCircle className="w-4 h-4" />;
     }
+  };
+
+  // Filter, sort, and paginate orders
+  const processedOrders = useMemo(() => {
+    let filtered = [...orders];
+
+    // Filter by name
+    if (nameFilter.trim()) {
+      const searchTerm = nameFilter.toLowerCase().trim();
+      filtered = filtered.filter(order => 
+        order.customerName?.toLowerCase().includes(searchTerm) ||
+        order.phone?.includes(searchTerm) ||
+        order.orderNumber?.toString().includes(searchTerm)
+      );
+    }
+
+    // Filter by date range
+    if (dateFromFilter || dateToFilter) {
+      filtered = filtered.filter(order => {
+        const orderDate = new Date(order.createdAt);
+        orderDate.setHours(0, 0, 0, 0); // Reset time to start of day
+        
+        if (dateFromFilter && dateToFilter) {
+          // Both dates provided - check if order date is within range
+          const fromDate = new Date(dateFromFilter);
+          fromDate.setHours(0, 0, 0, 0);
+          const toDate = new Date(dateToFilter);
+          toDate.setHours(23, 59, 59, 999); // End of day
+          return orderDate >= fromDate && orderDate <= toDate;
+        } else if (dateFromFilter) {
+          // Only from date - check if order date is on or after from date
+          const fromDate = new Date(dateFromFilter);
+          fromDate.setHours(0, 0, 0, 0);
+          return orderDate >= fromDate;
+        } else if (dateToFilter) {
+          // Only to date - check if order date is on or before to date
+          const toDate = new Date(dateToFilter);
+          toDate.setHours(23, 59, 59, 999); // End of day
+          return orderDate <= toDate;
+        }
+        return true;
+      });
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortField) {
+        case 'orderNumber':
+          aValue = a.orderNumber || '';
+          bValue = b.orderNumber || '';
+          break;
+        case 'customerName':
+          aValue = (a.customerName || '').toLowerCase();
+          bValue = (b.customerName || '').toLowerCase();
+          break;
+        case 'total':
+          aValue = a.total || 0;
+          bValue = b.total || 0;
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        case 'createdAt':
+        default:
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
+          break;
+      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [orders, nameFilter, dateFromFilter, dateToFilter, sortField, sortOrder]);
+
+  // Paginate
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return processedOrders.slice(startIndex, startIndex + pageSize);
+  }, [processedOrders, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(processedOrders.length / pageSize);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-4 h-4 inline ml-1 text-gray-400" />;
+    }
+    return sortOrder === 'asc' 
+      ? <ArrowUp className="w-4 h-4 inline ml-1 text-orange-500" />
+      : <ArrowDown className="w-4 h-4 inline ml-1 text-orange-500" />;
   };
 
   if (loading && viewMode === 'view') {
@@ -661,9 +776,92 @@ const AdminOrders = () => {
           /* View Orders Mode */
           <div className="card">
           <div className="p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              {orderType === 'customer' ? 'Customer Orders' : 'In-House Orders'}
-            </h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {orderType === 'customer' ? 'Customer Orders' : 'In-House Orders'}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <span>Total: {processedOrders.length}</span>
+                <span>•</span>
+                <span>Showing: {paginatedOrders.length}</span>
+              </div>
+            </div>
+
+            {/* Filters and Controls */}
+            <div className="mb-4 space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3 items-end">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Filter by name, phone, or order number..."
+                    value={nameFilter}
+                    onChange={(e) => {
+                      setNameFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex flex-col">
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">From</label>
+                    <input
+                      type="date"
+                      value={dateFromFilter}
+                      onChange={(e) => {
+                        setDateFromFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white h-[38px]"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">To</label>
+                    <input
+                      type="date"
+                      value={dateToFilter}
+                      onChange={(e) => {
+                        setDateToFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      min={dateFromFilter || undefined}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white h-[38px]"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">Per Page</label>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-800 dark:text-white h-[38px]"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={20}>20 per page</option>
+                    <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                  </select>
+                </div>
+              </div>
+              {(nameFilter || dateFromFilter || dateToFilter) && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setNameFilter('');
+                      setDateFromFilter('');
+                      setDateToFilter('');
+                      setCurrentPage(1);
+                    }}
+                    className="text-sm text-orange-600 dark:text-orange-400 hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
+            </div>
             
             {orders.length === 0 ? (
               <div className="text-center py-8">
@@ -672,36 +870,59 @@ const AdminOrders = () => {
                   No {orderType === 'customer' ? 'customer' : 'in-house'} orders found
                 </p>
               </div>
+            ) : processedOrders.length === 0 ? (
+              <div className="text-center py-8">
+                <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">
+                  No orders match your filters
+                </p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Order ID
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Customer
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Items
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Total
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                    {orders.map((order) => (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => handleSort('orderNumber')}
+                        >
+                          Order ID {getSortIcon('orderNumber')}
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => handleSort('customerName')}
+                        >
+                          Customer {getSortIcon('customerName')}
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Items
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => handleSort('total')}
+                        >
+                          Total {getSortIcon('total')}
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => handleSort('status')}
+                        >
+                          Status {getSortIcon('status')}
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => handleSort('createdAt')}
+                        >
+                          Date {getSortIcon('createdAt')}
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                      {paginatedOrders.map((order) => (
                       <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           #{order.orderNumber}
@@ -741,8 +962,8 @@ const AdminOrders = () => {
                             </button>
                             {order.status !== 'pending' && (
                               <button
-                                onClick={() => {
-                                  printBill(order);
+                                onClick={async () => {
+                                  await printBill(order);
                                   // Mark bill as printed
                                   setBillsPrinted(prev => new Set(prev).add(order._id));
                                 }}
@@ -765,8 +986,8 @@ const AdminOrders = () => {
                             ) : (
                               order.status === 'pending' ? (
                                 <button
-                                  onClick={() => {
-                                    printBill(order);
+                                  onClick={async () => {
+                                    await printBill(order);
                                     setBillsPrinted(prev => new Set(prev).add(order._id));
                                   }}
                                   className="btn-outline px-3 py-1 text-xs"
@@ -796,10 +1017,63 @@ const AdminOrders = () => {
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, processedOrders.length)} of {processedOrders.length} orders
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`px-3 py-2 rounded-lg text-sm ${
+                                currentPage === pageNum
+                                  ? 'bg-orange-500 text-white'
+                                  : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Star, MessageCircle, Trash2, Filter, TrendingUp, BarChart3, Users } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Star, MessageCircle, Trash2, Filter, TrendingUp, BarChart3, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import AdminHeader from '../components/AdminHeader';
 import { feedbackAPI } from '../services/api';
 
@@ -17,6 +17,8 @@ const AdminFeedback = () => {
     sortOrder: 'desc'
   });
   const [activeTab, setActiveTab] = useState('reviews'); // 'reviews' or 'analytics'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
     fetchFeedback();
@@ -192,6 +194,14 @@ const AdminFeedback = () => {
     );
   };
 
+  // Client-side pagination for reviews
+  const paginatedFeedback = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return feedback.slice(startIndex, startIndex + pageSize);
+  }, [feedback, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(feedback.length / pageSize);
+
   const renderReviews = () => (
     <div className="space-y-6">
       {/* Filters */}
@@ -204,7 +214,10 @@ const AdminFeedback = () => {
               </label>
               <select
                 value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value)}
+                onChange={(e) => {
+                  handleFilterChange('type', e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="form-select"
               >
                 <option value="all">All Reviews</option>
@@ -219,7 +232,10 @@ const AdminFeedback = () => {
               </label>
               <select
                 value={filters.rating}
-                onChange={(e) => handleFilterChange('rating', e.target.value)}
+                onChange={(e) => {
+                  handleFilterChange('rating', e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="form-select"
               >
                 <option value="">All Ratings</option>
@@ -241,6 +257,7 @@ const AdminFeedback = () => {
                   const [sortBy, sortOrder] = e.target.value.split('-');
                   handleFilterChange('sortBy', sortBy);
                   handleFilterChange('sortOrder', sortOrder);
+                  setCurrentPage(1);
                 }}
                 className="form-select"
               >
@@ -248,6 +265,25 @@ const AdminFeedback = () => {
                 <option value="createdAt-asc">Oldest First</option>
                 <option value="rating-desc">Highest Rating</option>
                 <option value="rating-asc">Lowest Rating</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Per Page
+              </label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="form-select"
+              >
+                <option value={10}>10 per page</option>
+                <option value={20}>20 per page</option>
+                <option value={50}>50 per page</option>
+                <option value={100}>100 per page</option>
               </select>
             </div>
           </div>
@@ -277,14 +313,19 @@ const AdminFeedback = () => {
           )}
 
           {!loading && !error && (
-            <div className="space-y-4">
-              {feedback.length === 0 ? (
-                <div className="text-center py-8">
-                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-300">No reviews found</p>
-                </div>
-              ) : (
-                feedback.map((review) => (
+            <>
+              <div className="mb-4 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                <span>Total: {feedback.length} reviews</span>
+                <span>Showing: {paginatedFeedback.length}</span>
+              </div>
+              <div className="space-y-4">
+                {feedback.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-300">No reviews found</p>
+                  </div>
+                ) : (
+                  paginatedFeedback.map((review) => (
                   <div
                     key={review._id}
                     className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -329,9 +370,62 @@ const AdminFeedback = () => {
                       </button>
                     </div>
                   </div>
-                ))
+                  ))
+                )}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, feedback.length)} of {feedback.length} reviews
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-3 py-2 rounded-lg text-sm ${
+                              currentPage === pageNum
+                                ? 'bg-orange-500 text-white'
+                                : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 dark:text-white"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
