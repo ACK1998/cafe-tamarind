@@ -69,29 +69,46 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
+    // Normalize origin (remove trailing slash)
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+    
     const allowedOrigins = [
       API_CONFIG.CORS_ORIGIN,
+      process.env.FRONTEND_URL,
       'http://localhost:3006',
       'http://127.0.0.1:3006'
-    ].filter(Boolean); // Remove undefined values
+    ]
+      .filter(Boolean) // Remove undefined values
+      .map(o => o.replace(/\/+$/, '')); // Normalize
     
     // Log CORS configuration on startup (first request)
     if (!corsOptions._logged) {
       console.log('🌐 CORS Configuration:', {
         CORS_ORIGIN: API_CONFIG.CORS_ORIGIN,
         FRONTEND_URL: process.env.FRONTEND_URL,
-        allowedOrigins: allowedOrigins
+        allowedOrigins: allowedOrigins,
+        receivedOrigin: normalizedOrigin
       });
       corsOptions._logged = true;
     }
     
-    // Also allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
-    const isLocalNetwork = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin);
+    // Check if origin matches any allowed origin (case-insensitive, normalized)
+    const isAllowedOrigin = allowedOrigins.some(allowed => {
+      return normalizedOrigin.toLowerCase() === allowed.toLowerCase();
+    });
     
-    if (allowedOrigins.includes(origin) || isLocalNetwork) {
+    // Also allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    const isLocalNetwork = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/i.test(origin);
+    
+    // Allow Vercel frontend URLs (production and preview deployments)
+    const isVercelFrontend = /^https:\/\/cafe-tamarind-frontend(-[a-z0-9]+)?\.vercel\.app$/i.test(normalizedOrigin);
+    
+    if (isAllowedOrigin || isLocalNetwork || isVercelFrontend) {
       callback(null, true);
     } else {
-      console.warn(`🚫 CORS blocked origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
+      console.warn(`🚫 CORS blocked origin: ${normalizedOrigin}`);
+      console.warn(`   Allowed origins: ${allowedOrigins.join(', ')}`);
+      console.warn(`   Is Vercel frontend: ${isVercelFrontend}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
