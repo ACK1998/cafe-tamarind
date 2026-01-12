@@ -451,7 +451,6 @@ export const printBill = async (order) => {
               <img src="${qrCodeDataURL}" alt="Review QR Code" />
             </div>
             <p class="qr-text">Scan to leave a review</p>
-            <p class="qr-url">${escapeHtml(absoluteReviewUrl)}</p>
           </div>
         `;
         console.log('✅ QR code HTML generated successfully');
