@@ -41,12 +41,13 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
+// Rate limiting - skip OPTIONS requests (preflight)
 const limiter = rateLimit({
   windowMs: API_CONFIG.RATE_LIMIT_WINDOW,
   max: API_CONFIG.RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS', // Skip rate limiting for preflight requests
   message: {
     error: 'Too many requests, please try again later.',
     retryAfter: Math.ceil(API_CONFIG.RATE_LIMIT_WINDOW / 1000)
@@ -72,7 +73,17 @@ const corsOptions = {
       API_CONFIG.CORS_ORIGIN,
       'http://localhost:3006',
       'http://127.0.0.1:3006'
-    ];
+    ].filter(Boolean); // Remove undefined values
+    
+    // Log CORS configuration on startup (first request)
+    if (!corsOptions._logged) {
+      console.log('🌐 CORS Configuration:', {
+        CORS_ORIGIN: API_CONFIG.CORS_ORIGIN,
+        FRONTEND_URL: process.env.FRONTEND_URL,
+        allowedOrigins: allowedOrigins
+      });
+      corsOptions._logged = true;
+    }
     
     // Also allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
     const isLocalNetwork = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin);
@@ -80,10 +91,14 @@ const corsOptions = {
     if (allowedOrigins.includes(origin) || isLocalNetwork) {
       callback(null, true);
     } else {
+      console.warn(`🚫 CORS blocked origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
 app.use(cors(corsOptions));
@@ -104,8 +119,14 @@ if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
 }
 
 // Middleware to ensure DB connection in production (for serverless cold starts)
+// Skip for OPTIONS requests (preflight) and health checks
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
   app.use(async (req, res, next) => {
+    // Skip DB check for OPTIONS requests (preflight)
+    if (req.method === 'OPTIONS') {
+      return next();
+    }
+    
     const mongoose = require('mongoose');
     const readyState = mongoose.connection.readyState;
     

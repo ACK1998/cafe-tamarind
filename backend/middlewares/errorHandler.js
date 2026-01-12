@@ -4,6 +4,15 @@ const errorHandler = (err, req, res, next) => {
 
   // Log error for debugging
   console.error('Error:', err);
+  
+  // Handle CORS errors specifically
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      success: false,
+      error: 'CORS: Origin not allowed',
+      origin: req.headers.origin
+    });
+  }
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
